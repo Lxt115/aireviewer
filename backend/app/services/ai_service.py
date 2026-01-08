@@ -313,6 +313,64 @@ class AIService:
             print(f"Error in chat: {e}")
             # 返回错误响应
             return "抱歉，处理您的请求时发生错误，请稍后重试。"
+    
+    async def optimize_prompt(self, original_prompt: str) -> str:
+        """
+        优化规则描述为更清晰、更准确的AI提示词
+        :param original_prompt: 原始规则描述
+        :return: 优化后的AI提示词
+        """
+        # 如果客户端未初始化（API密钥未设置），返回模拟优化结果
+        if not self.client:
+            return f"{original_prompt}（模拟优化：建议增加更详细的审核标准和示例）"
+            
+        try:
+            prompt = f"""
+            作为一名AI提示词优化专家，请将以下规则描述优化为更清晰、更准确、更适合AI理解的提示词：
+            
+            原始规则描述：{original_prompt}
+            
+            优化要求：
+            1. 保持原意不变
+            2. 语言更清晰、更准确
+            3. 结构更合理，便于AI理解
+            4. 突出关键审核点和判断逻辑
+            5. 增加必要的上下文说明
+            
+            请直接输出优化后的提示词，不要添加任何额外解释。
+            """
+            
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": "你是一名专业的AI提示词优化专家，擅长将自然语言描述转化为清晰、准确、适合AI理解的提示词。"},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.3
+            )
+            
+            result = response.choices[0].message.content
+            return result
+        except Exception as e:
+            print(f"Error in optimize_prompt: {e}")
+            # 返回原始提示词作为降级方案
+            return original_prompt
+    
+    def init_client(self):
+        """初始化大模型客户端"""
+        try:
+            if self.provider == "openai" and self.api_key:
+                from openai import OpenAI
+                self.client = OpenAI(api_key=self.api_key, base_url=self.base_url if self.base_url else None)
+            elif self.provider == "dashscope" and self.api_key:
+                from openai import OpenAI
+                self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
+            else:
+                print(f"AI client not initialized. Provider: {self.provider}, API Key: {'Set' if self.api_key else 'Not Set'}")
+        except Exception as e:
+            print(f"Error initializing AI client: {e}")
+            self.client = None
 
 # 创建AI服务实例
 ai_service = AIService()
+ai_service.init_client()

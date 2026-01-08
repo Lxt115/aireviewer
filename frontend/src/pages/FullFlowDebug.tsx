@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Modal, Form, Input, Select, message, Upload, Card, Row, Col } from 'antd';
+import { Button, Modal, Form, Input, Select, message, Card } from 'antd';
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, UploadOutlined, PlayCircleOutlined,
-  CheckCircleOutlined, MessageOutlined
+  CheckCircleOutlined, MessageOutlined, MinusOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 
@@ -72,7 +72,9 @@ const FullFlowDebug: React.FC = () => {
   // 规则表单状态
   const [ruleName, setRuleName] = useState('');
   const [ruleSceneId, setRuleSceneId] = useState('');
-  const [ruleDescription, setRuleDescription] = useState('');
+  // 新增规则直接编辑状态
+  const [showNewRuleInput, setShowNewRuleInput] = useState(false);
+  const [newRuleName, setNewRuleName] = useState('');
   
   // 审核项表单状态
   const [itemName, setItemName] = useState('');
@@ -92,6 +94,13 @@ const FullFlowDebug: React.FC = () => {
   const [optimizing, setOptimizing] = useState(false);
   // 扩展结果折叠状态
   const [expandedResults, setExpandedResults] = useState<Record<string, boolean>>({});
+  // 面板状态
+  const [sceneRuleCollapsed, setSceneRuleCollapsed] = useState(false);
+  const [showValidationResults, setShowValidationResults] = useState(false);
+  // 监听校验结果变化，控制面板显示
+  useEffect(() => {
+    setShowValidationResults(validationResults.length > 0);
+  }, [validationResults]);
 
   // 获取业务场景列表
   const fetchScenes = async () => {
@@ -281,12 +290,10 @@ const FullFlowDebug: React.FC = () => {
       setEditingRule(rule);
       setRuleName(rule.name);
       setRuleSceneId(rule.scene_id);
-      setRuleDescription(rule.description || '');
     } else {
       setEditingRule(null);
       setRuleName('');
       setRuleSceneId(selectedScene || '');
-      setRuleDescription('');
     }
     setRuleModalVisible(true);
   };
@@ -296,7 +303,27 @@ const FullFlowDebug: React.FC = () => {
     setEditingRule(null);
     setRuleName('');
     setRuleSceneId(selectedScene || '');
-    setRuleDescription('');
+  };
+  
+  // 直接添加规则函数
+  const handleAddRuleDirectly = async () => {
+    try {
+      const ruleData = {
+        name: newRuleName.trim() || '未命名规则',
+        scene_id: selectedScene,
+      };
+      
+      await axios.post('http://localhost:8000/api/rules/', ruleData);
+      message.success('新增规则成功');
+      
+      // 重置状态
+      setNewRuleName('');
+      setShowNewRuleInput(false);
+      fetchRules();
+    } catch (error) {
+      message.error('新增规则失败');
+      console.error('Error adding rule directly:', error);
+    }
   };
   
   const handleRuleSubmit = async (values: any) => {
@@ -524,15 +551,31 @@ const FullFlowDebug: React.FC = () => {
   };
 
   return (
-    <div className="full-flow-debug">
-      <h2 className="page-title">全流程调试界面</h2>
+    <div className="full-flow-debug" style={{ height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: '16px' }}>
+      <h2 className="page-title" style={{ marginBottom: '16px' }}>全流程调试界面</h2>
       
-      <Row gutter={[24, 24]}>
-        {/* 左侧：功能操作区 */}
-        <Col span={8}>
-          {/* 业务场景和规则管理 */}
-          <Card title="业务场景与规则" bordered={false} style={{ marginBottom: '16px' }}>
-            <div style={{ display: 'flex', gap: '16px', overflow: 'hidden', height: '300px' }}>
+      <div style={{ display: 'flex', flex: 1, gap: '16px', overflow: 'hidden' }}>
+        {/* 左侧：业务场景与规则 */}
+        {!sceneRuleCollapsed && (
+          <div style={{ flex: 0.25, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            {/* 业务场景和规则管理 */}
+            <Card 
+              title="业务场景与规则" 
+              bordered={false} 
+              extra={
+                <Button 
+                  type="default" 
+                  icon={<MinusOutlined />} 
+                  onClick={() => setSceneRuleCollapsed(true)}
+                  size="small"
+                  style={{ backgroundColor: '#f0f0f0' }}
+                >
+                  收起目录
+                </Button>
+              }
+              style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+            >
+              <div style={{ display: 'flex', gap: '16px', overflow: 'hidden', flex: 1 }}>
               {/* 业务场景 */}
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
@@ -553,17 +596,16 @@ const FullFlowDebug: React.FC = () => {
                     <div 
                       key={scene._id}
                       onClick={() => setSelectedScene(scene._id)}
-                      style={{
-                        padding: '8px 12px',
-                        marginBottom: '4px',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        backgroundColor: selectedScene === scene._id ? '#e6f7ff' : 'transparent',
-                        borderLeft: selectedScene === scene._id ? '3px solid #1890ff' : '3px solid transparent',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center'
-                      }}
+                    style={{
+                      padding: '8px 12px',
+                      marginBottom: '4px',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      backgroundColor: selectedScene === scene._id ? '#e6eef5' : 'transparent',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}
                     >
                       <div style={{ flex: 1 }}>
                         <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{scene.name}</div>
@@ -603,128 +645,107 @@ const FullFlowDebug: React.FC = () => {
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                   <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 'bold' }}>规则</h4>
-                  <Button 
-                    type="primary" 
-                    icon={<PlusOutlined />} 
-                    onClick={() => showRuleModal()} 
-                    disabled={!selectedScene} 
-                    size="small"
-                    style={{ height: '28px', fontSize: '12px' }}
-                  >
-                    添加
-                  </Button>
                 </div>
                 
                 <div style={{ flex: 1, overflowY: 'auto' }}>
                   {selectedScene ? (
-                    rules.filter(rule => rule.scene_id === selectedScene).map((rule) => (
-                      <div key={rule._id} style={{ marginBottom: '8px' }}>
-                        <div 
-                          onClick={() => setSelectedRule(rule._id)}
+                    <>
+                      {/* 直接添加规则输入框 */}
+                      <div style={{ marginBottom: '8px' }}>
+                        {showNewRuleInput ? (
+                          <div style={{ 
+                            padding: '8px 12px', 
+                            borderRadius: '4px', 
+                            backgroundColor: '#f0f0f0',
+                            display: 'flex',
+                            gap: '8px',
+                            alignItems: 'center'
+                          }}>
+                            <Input
+                              placeholder="请输入规则名称"
+                              value={newRuleName}
+                              onChange={(e) => setNewRuleName(e.target.value)}
+                              onPressEnter={handleAddRuleDirectly}
+                              style={{ flex: 1, height: '32px', fontSize: '14px' }}
+                            />
+                            <Button 
+                              type="primary" 
+                              size="small"
+                              onClick={handleAddRuleDirectly}
+                              style={{ height: '32px', fontSize: '12px' }}
+                            >
+                              保存
+                            </Button>
+                            <Button 
+                              type="default" 
+                              size="small"
+                              onClick={() => {
+                                setShowNewRuleInput(false);
+                                setNewRuleName('');
+                              }}
+                              style={{ height: '32px', fontSize: '12px' }}
+                            >
+                              取消
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button 
+                            type="dashed" 
+                            icon={<PlusOutlined />} 
+                            onClick={() => setShowNewRuleInput(true)}
+                            size="small"
+                            style={{ width: '100%', height: '32px', fontSize: '12px', justifyContent: 'center' }}
+                          >
+                            点击添加新规则
+                          </Button>
+                        )}
+                      </div>
+                      
+                      {/* 规则列表 */}
+                      {rules.filter(rule => rule.scene_id === selectedScene).map((rule) => (
+                        <div key={rule._id} style={{ marginBottom: '8px' }}>
+                          <div 
+                            onClick={() => setSelectedRule(rule._id)}
                           style={{
                             padding: '8px 12px',
                             borderRadius: '4px',
                             cursor: 'pointer',
-                            backgroundColor: selectedRule === rule._id ? '#e6f7ff' : 'transparent',
-                            borderLeft: selectedRule === rule._id ? '3px solid #1890ff' : '3px solid transparent',
+                            backgroundColor: selectedRule === rule._id ? '#e6eef5' : 'transparent',
                             display: 'flex',
                             justifyContent: 'space-between',
                             alignItems: 'center'
                           }}
-                        >
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{rule.name}</div>
-                          </div>
-                          <div style={{ display: 'flex', gap: '2px' }}>
-                            <Button 
-                              type="text" 
-                              icon={<EditOutlined />} 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                showRuleModal(rule);
-                              }} 
-                              size="small"
-                              style={{ padding: '0 4px', fontSize: '12px', minWidth: '24px', height: '24px', lineHeight: '24px' }}
-                            />
-                            <Button 
-                              type="text" 
-                              danger 
-                              icon={<DeleteOutlined />} 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleRuleDelete(rule._id);
-                              }} 
-                              size="small"
-                              style={{ padding: '0 4px', fontSize: '12px', minWidth: '24px', height: '24px', lineHeight: '24px' }}
-                            />
+                          >
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{rule.name}</div>
+                            </div>
+                            <div style={{ display: 'flex', gap: '2px' }}>
+                              <Button 
+                                type="text" 
+                                icon={<EditOutlined />} 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  showRuleModal(rule);
+                                }} 
+                                size="small"
+                                style={{ padding: '0 4px', fontSize: '12px', minWidth: '24px', height: '24px', lineHeight: '24px' }}
+                              />
+                              <Button 
+                                type="text" 
+                                danger 
+                                icon={<DeleteOutlined />} 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRuleDelete(rule._id);
+                                }} 
+                                size="small"
+                                style={{ padding: '0 4px', fontSize: '12px', minWidth: '24px', height: '24px', lineHeight: '24px' }}
+                              />
+                            </div>
                           </div>
                         </div>
-                        
-                        {/* 审核项列表 */}
-                        {selectedRule === rule._id && (
-                          <div style={{ paddingLeft: '16px', marginTop: '4px' }}>
-                            {auditItems.filter(item => item.rule_id === rule._id).map((item) => (
-                              <div 
-                                key={item._id}
-                                style={{
-                                  padding: '6px 10px',
-                                  marginBottom: '2px',
-                                  borderRadius: '3px',
-                                  backgroundColor: '#f5f5f5',
-                                  fontSize: '13px',
-                                  display: 'flex',
-                                  justifyContent: 'space-between',
-                                  alignItems: 'center'
-                                }}
-                              >
-                                <div style={{ flex: 1 }}>
-                                  <div style={{ fontWeight: 'bold', fontSize: '12px' }}>{item.name}</div>
-                                </div>
-                                <div style={{ display: 'flex', gap: '2px' }}>
-                                  <Button 
-                                    type="text" 
-                                    icon={<EditOutlined />} 
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      showItemModal(item);
-                                    }} 
-                                    size="small"
-                                    style={{ padding: '0 3px', fontSize: '11px', minWidth: '22px', height: '22px', lineHeight: '22px' }}
-                                  />
-                                  <Button 
-                                    type="text" 
-                                    danger 
-                                    icon={<DeleteOutlined />} 
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      Modal.confirm({
-                                        title: '确认删除',
-                                        content: '确定要删除这个审核项吗？',
-                                        okText: '确定',
-                                        okType: 'danger',
-                                        cancelText: '取消',
-                                        onOk: async () => {
-                                          try {
-                                            await axios.delete(`http://localhost:8000/api/audit-items/${item._id}`);
-                                            message.success('删除审核项成功');
-                                            fetchAuditItems();
-                                          } catch (error) {
-                                            message.error('删除审核项失败');
-                                            console.error('Error deleting audit item:', error);
-                                          }
-                                        },
-                                      });
-                                    }} 
-                                    size="small"
-                                    style={{ padding: '0 3px', fontSize: '11px', minWidth: '22px', height: '22px', lineHeight: '22px' }}
-                                  />
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))
+                      ))}
+                    </>
                   ) : (
                     <div style={{ textAlign: 'center', color: '#999', padding: '20px 0', fontSize: '14px' }}>
                       请先选择一个业务场景
@@ -734,71 +755,116 @@ const FullFlowDebug: React.FC = () => {
               </div>
             </div>
           </Card>
-          
-          {/* 规则校验功能区 */}
-          <Card title="规则校验功能" bordered={false}>
-            <Form layout="vertical">
-              {/* 规则描述输入区域 */}
-              <Form.Item label="规则描述">
-                <Input.TextArea
-                  placeholder="请输入规则描述，例如：结合关联文档的《巡察整改台账》的【问题描述】信息，判断《整改方案》的整改任务中具体问题是否有缺漏"
-                  rows={4}
-                  value={debugRuleDescription}
-                  onChange={(e) => setDebugRuleDescription(e.target.value)}
-                  style={{ marginBottom: '8px' }}
-                  maxLength={500}
-                  showCount
-                />
-                <Button
-                  type="default"
-                  icon={<MessageOutlined />}
-                  onClick={optimizeRuleDescription}
-                  loading={optimizing}
-                  disabled={!debugRuleDescription.trim()}
-                  size="small"
-                >
-                  AI优化
-                </Button>
-              </Form.Item>
-              
-              {/* 优化后提示词编辑区域 */}
-              <Form.Item label="优化后提示词">
-                <Input.TextArea
-                  placeholder="AI优化后的提示词会显示在这里，您可以继续编辑"
-                  rows={6}
-                  value={optimizedPrompt}
-                  onChange={(e) => setOptimizedPrompt(e.target.value)}
-                  maxLength={1000}
-                  showCount
-                />
-              </Form.Item>
-              
-              {/* 当前审核点列表 */}
-              {selectedRule && (
-                <Form.Item style={{ marginBottom: '16px' }}>
-                  <div style={{ fontWeight: 'bold', fontSize: '14px', marginBottom: '8px' }}>当前审核点</div>
-                  <div style={{ border: '1px solid #e8e8e8', borderRadius: '4px', padding: '8px', maxHeight: '120px', overflowY: 'auto' }}>
-                    {auditItems.filter(item => item.rule_id === selectedRule).map(item => (
-                      <div 
-                        key={item._id} 
-                        style={{
-                          padding: '4px 8px', 
-                          marginBottom: '4px', 
-                          backgroundColor: '#fafafa', 
-                          borderRadius: '3px',
-                          fontSize: '13px',
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center'
-                        }}
-                      >
-                        <span>{item.name}</span>
-                        <span style={{ fontSize: '12px', color: '#666' }}>{item.type}</span>
-                      </div>
-                    ))}
+        </div>
+        )}
+        
+        {/* 中间：规则校验 */}
+        <div style={{ flex: sceneRuleCollapsed ? (showValidationResults ? 0.6 : 1) : (showValidationResults ? 0.4 : 0.75), display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <Card 
+            title={
+              sceneRuleCollapsed ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Button 
+                    type="default" 
+                    icon={<PlusOutlined />} 
+                    onClick={() => setSceneRuleCollapsed(false)}
+                    size="small"
+                    style={{ backgroundColor: '#f0f0f0' }}
+                  >
+                    展开目录
+                  </Button>
+                  规则校验
+                </div>
+              ) : '规则校验'
+            } 
+            bordered={false} 
+            style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+          >
+            <Form style={{ flex: 1, overflow: 'auto', paddingRight: '8px' }}>
+              {/* AI优化工作流卡片 */}
+              <Card 
+                title="AI优化工作流" 
+                variant="outlined"
+                style={{ marginBottom: '16px', border: '1px solid #f0f0f0' }}
+                extra={<div style={{ fontSize: '12px', color: '#666' }}>🔍 在此输入原始执行逻辑，AI将为您生成优化方案</div>}
+              >
+                <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
+                  {/* 原始执行逻辑 */}
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '8px', color: '#1890ff' }}>📝 原始执行逻辑</div>
+                    <Input.TextArea
+                      placeholder="请输入执行逻辑，例如：结合关联文档的《巡察整改台账》的【问题描述】信息，判断《整改方案》的整改任务中具体问题是否有缺漏"
+                      rows={4}
+                      value={debugRuleDescription}
+                      onChange={(e) => setDebugRuleDescription(e.target.value)}
+                      style={{ marginBottom: '8px' }}
+                      maxLength={500}
+                      showCount
+                    />
                   </div>
-                </Form.Item>
-              )}
+                  
+                  {/* 中间操作区 */}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', paddingTop: '24px' }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>
+                      →
+                    </div>
+                    <Button
+                      type="primary"
+                      icon={<MessageOutlined />}
+                      onClick={optimizeRuleDescription}
+                      loading={optimizing}
+                      disabled={!debugRuleDescription.trim()}
+                      size="small"
+                      style={{ minWidth: '120px' }}
+                    >
+                      {optimizing ? '优化中...' : '生成优化结果'}
+                    </Button>
+                    <div style={{ fontSize: '12px', color: '#999' }}>点击生成AI优化方案</div>
+                  </div>
+                  
+                  {/* AI优化结果 */}
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '8px', color: '#52c41a' }}>✨ AI优化结果</div>
+                    <Input.TextArea
+                      placeholder={optimizing ? "AI正在优化中，请稍候..." : "AI优化后的提示词会显示在这里，您可以继续编辑"}
+                      rows={4}
+                      value={optimizedPrompt}
+                      onChange={(e) => setOptimizedPrompt(e.target.value)}
+                      maxLength={1000}
+                      showCount
+                      disabled={optimizing}
+                    />
+                    {optimizedPrompt && (
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '8px', justifyContent: 'flex-end' }}>
+                        <Button
+                          type="default"
+                          size="small"
+                          onClick={() => {
+                            navigator.clipboard.writeText(optimizedPrompt);
+                            message.success('复制成功');
+                          }}
+                        >
+                          复制结果
+                        </Button>
+                        <Button
+                          type="default"
+                          size="small"
+                          onClick={() => setOptimizedPrompt('')}
+                        >
+                          清空
+                        </Button>
+                        <Button
+                          type="primary"
+                          size="small"
+                          onClick={() => setDebugRuleDescription(optimizedPrompt)}
+                        >
+                          应用优化结果
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </Card>
               
               {/* 待审核文件上传 */}
               <Form.Item label="待审核文件">
@@ -932,98 +998,102 @@ const FullFlowDebug: React.FC = () => {
               </Form.Item>
             </Form>
           </Card>
-        </Col>
+        </div>
         
-        {/* 右侧：结果展示区 */}
-        <Col span={16}>
-          {/* 校验结果 */}
-          <Card title="校验结果" bordered={false}>
-            {validationResults.length > 0 ? (
-              <>
-                {/* 结果统计 */}
-                <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#f0f5ff', borderRadius: '4px' }}>
-                  <div style={{ display: 'flex', gap: '24px', fontSize: '14px' }}>
-                    <div>
-                      <span style={{ fontWeight: 'bold', marginRight: '8px' }}>总文件数：</span>
-                      <span>{validationResults.length}</span>
-                    </div>
-                    <div>
-                      <span style={{ fontWeight: 'bold', marginRight: '8px' }}>通过：</span>
-                      <span style={{ color: '#52c41a', fontWeight: 'bold' }}>
-                        {validationResults.filter(item => item.result === '通过').length}
-                      </span>
-                    </div>
-                    <div>
-                      <span style={{ fontWeight: 'bold', marginRight: '8px' }}>不通过：</span>
-                      <span style={{ color: '#ff4d4f', fontWeight: 'bold' }}>
-                        {validationResults.filter(item => item.result === '不通过').length}
-                      </span>
+        {/* 右侧：校验结果 */}
+        {showValidationResults && (
+          <div style={{ flex: sceneRuleCollapsed ? 0.4 : 0.35, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            {/* 校验结果 */}
+            <Card title="校验结果" bordered={false} style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ flex: 1, overflow: 'auto', paddingRight: '8px' }}>
+              {validationResults.length > 0 ? (
+                <>
+                  {/* 结果统计 */}
+                  <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#f0f5ff', borderRadius: '4px' }}>
+                    <div style={{ display: 'flex', gap: '24px', fontSize: '14px' }}>
+                      <div>
+                        <span style={{ fontWeight: 'bold', marginRight: '8px' }}>总文件数：</span>
+                        <span>{validationResults.length}</span>
+                      </div>
+                      <div>
+                        <span style={{ fontWeight: 'bold', marginRight: '8px' }}>通过：</span>
+                        <span style={{ color: '#52c41a', fontWeight: 'bold' }}>
+                          {validationResults.filter(item => item.result === '通过').length}
+                        </span>
+                      </div>
+                      <div>
+                        <span style={{ fontWeight: 'bold', marginRight: '8px' }}>不通过：</span>
+                        <span style={{ color: '#ff4d4f', fontWeight: 'bold' }}>
+                          {validationResults.filter(item => item.result === '不通过').length}
+                        </span>
+                      </div>
                     </div>
                   </div>
+                  
+                  {/* 结果列表 */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {validationResults.map((item, index) => (
+                      <Card 
+                        key={index} 
+                        title={item.fileName} 
+                        bordered={false} 
+                        extra={
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ 
+                              fontSize: '14px', 
+                              fontWeight: 'bold',
+                              color: item.result === '通过' ? '#52c41a' : '#ff4d4f'
+                            }}>
+                              {item.result}
+                            </span>
+                            {item.result === '通过' ? 
+                              <CheckCircleOutlined style={{ color: '#52c41a', fontSize: '18px' }} /> : 
+                              <DeleteOutlined style={{ color: '#ff4d4f', fontSize: '18px' }} />
+                            }
+                          </div>
+                        }
+                        style={{ boxShadow: '0 2px 8px rgba(0, 0, 0, 0.09)' }}
+                        actions={[
+                          <Button 
+                            type="text" 
+                            onClick={() => toggleResultExpanded(item.fileName)}
+                            size="small"
+                          >
+                            {expandedResults[item.fileName] ? '收起详情' : '查看详情'}
+                          </Button>
+                        ]}
+                      >
+                        <div style={{ fontSize: '14px', color: '#666', marginBottom: '8px' }}>规则：{item.ruleName}</div>
+                        
+                        {/* 详细理由 - 可折叠 */}
+                        {expandedResults[item.fileName] && (
+                          <div style={{ marginTop: '12px', padding: '12px', backgroundColor: '#fafafa', borderRadius: '4px' }}>
+                            <div style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '8px' }}>审核理由：</div>
+                            {Array.isArray(item.reason) ? (
+                              <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                                {item.reason.map((reason: string, idx: number) => (
+                                  <li key={idx} style={{ fontSize: '14px', marginBottom: '4px', color: '#333' }}>{reason}</li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <div style={{ fontSize: '14px', color: '#333' }}>{item.reason}</div>
+                            )}
+                          </div>
+                        )}
+                      </Card>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '40px 0', color: '#999', fontSize: '14px' }}>
+                  暂无校验结果，请先上传文件并点击"开始校验"
                 </div>
-                
-                {/* 结果列表 */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  {validationResults.map((item, index) => (
-                    <Card 
-                      key={index} 
-                      title={item.fileName} 
-                      bordered={false} 
-                      extra={
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ 
-                            fontSize: '14px', 
-                            fontWeight: 'bold',
-                            color: item.result === '通过' ? '#52c41a' : '#ff4d4f'
-                          }}>
-                            {item.result}
-                          </span>
-                          {item.result === '通过' ? 
-                            <CheckCircleOutlined style={{ color: '#52c41a', fontSize: '18px' }} /> : 
-                            <DeleteOutlined style={{ color: '#ff4d4f', fontSize: '18px' }} />
-                          }
-                        </div>
-                      }
-                      style={{ boxShadow: '0 2px 8px rgba(0, 0, 0, 0.09)' }}
-                      actions={[
-                        <Button 
-                          type="text" 
-                          onClick={() => toggleResultExpanded(item.fileName)}
-                          size="small"
-                        >
-                          {expandedResults[item.fileName] ? '收起详情' : '查看详情'}
-                        </Button>
-                      ]}
-                    >
-                      <div style={{ fontSize: '14px', color: '#666', marginBottom: '8px' }}>规则：{item.ruleName}</div>
-                      
-                      {/* 详细理由 - 可折叠 */}
-                      {expandedResults[item.fileName] && (
-                        <div style={{ marginTop: '12px', padding: '12px', backgroundColor: '#fafafa', borderRadius: '4px' }}>
-                          <div style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '8px' }}>审核理由：</div>
-                          {Array.isArray(item.reason) ? (
-                            <ul style={{ margin: 0, paddingLeft: '20px' }}>
-                              {item.reason.map((reason: string, idx: number) => (
-                                <li key={idx} style={{ fontSize: '14px', marginBottom: '4px', color: '#333' }}>{reason}</li>
-                              ))}
-                            </ul>
-                          ) : (
-                            <div style={{ fontSize: '14px', color: '#333' }}>{item.reason}</div>
-                          )}
-                        </div>
-                      )}
-                    </Card>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <div style={{ textAlign: 'center', padding: '40px 0', color: '#999', fontSize: '14px' }}>
-                暂无校验结果，请先上传文件并点击"开始校验"
-              </div>
-            )}
+              )}
+            </div>
           </Card>
-        </Col>
-      </Row>
+        </div>
+        )}
+      </div>
       
       {/* 业务场景模态框 */}
       <Modal
@@ -1094,9 +1164,7 @@ const FullFlowDebug: React.FC = () => {
             }
             handleRuleSubmit({
               name: ruleName.trim(),
-              scene_id: ruleSceneId.trim(),
-              description: ruleDescription.trim(),
-              reference_materials: []
+              scene_id: ruleSceneId.trim()
             });
           }}>
             确定
@@ -1124,39 +1192,6 @@ const FullFlowDebug: React.FC = () => {
                 <Select.Option key={scene._id} value={scene._id}>{scene.name}</Select.Option>
               ))}
             </Select>
-          </div>
-          <div>
-            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>规则描述</label>
-            <Input.TextArea 
-              placeholder="请输入规则描述" 
-              rows={4} 
-              value={ruleDescription} 
-              onChange={(e) => setRuleDescription(e.target.value)} 
-            />
-          </div>
-          <div>
-            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>参考材料</label>
-            <p style={{ color: '#666', marginBottom: '8px', fontSize: '12px' }}>上传用于辅助审核的参考材料，支持多个文件</p>
-            <Upload
-              name="reference_files"
-              multiple
-              action="http://localhost:8000/api/upload"
-              beforeUpload={(file) => {
-                const allowedExtensions = [
-                  '.jpg', '.jpeg', '.png', '.gif', '.bmp',
-                  '.pdf', '.docx', '.doc', '.xlsx', '.xls', '.csv',
-                  '.pptx', '.ppt', '.txt', '.md'
-                ];
-                const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
-                if (!allowedExtensions.includes(fileExtension)) {
-                  message.error('只支持上传图片、文档、表格、演示文稿和文本文件！');
-                  return Upload.LIST_IGNORE;
-                }
-                return true;
-              }}
-            >
-              <Button icon={<UploadOutlined />}>上传参考材料</Button>
-            </Upload>
           </div>
         </div>
       </Modal>

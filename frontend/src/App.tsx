@@ -11,57 +11,57 @@ import FullFlowDebug from './pages/FullFlowDebug';
 const { Header, Content } = Layout;
 
 const App: React.FC = () => {
-  // 低饱和度主题配置
-  const lowSaturationTheme = {
+  // 设计系统主题配置
+  const designSystemTheme = {
     token: {
-      // 主色调 - 低饱和度蓝色
-      colorPrimary: '#5a7da3',
-      colorPrimaryHover: '#6b8db8',
-      colorPrimaryActive: '#4a6d98',
-      colorPrimaryBorder: '#c4d4e3',
+      // 主色调 - 紫色系
+      colorPrimary: '#6750A4',
+      colorPrimaryHover: '#5A469A',
+      colorPrimaryActive: '#4B3B87',
+      colorPrimaryBorder: '#79747E',
       
       // 文本色
-      colorText: '#333333',
-      colorTextSecondary: '#666666',
-      colorTextTertiary: '#999999',
+      colorText: '#1C1B1F',
+      colorTextSecondary: '#49454F',
+      colorTextTertiary: '#79747E',
       
       // 背景色
-      colorBgContainer: '#f5f7fa',
-      colorBgElevated: '#ffffff',
-      colorBgLayout: '#f0f2f5',
+      colorBgContainer: '#FFFFFF',
+      colorBgElevated: '#FFFFFF',
+      colorBgLayout: '#FFFBFE',
       
       // 边框色
-      colorBorder: '#e0e0e0',
-      colorBorderSecondary: '#f0f0f0',
+      colorBorder: '#79747E',
+      colorBorderSecondary: '#F3EDF7',
       
-      // 成功色 - 低饱和度绿色
-      colorSuccess: '#67c23a',
-      colorSuccessHover: '#7ec261',
-      colorSuccessActive: '#529b2e',
+      // 成功色
+      colorSuccess: '#6750A4',
+      colorSuccessHover: '#5A469A',
+      colorSuccessActive: '#4B3B87',
       
-      // 警告色 - 低饱和度黄色
-      colorWarning: '#e6a23c',
-      colorWarningHover: '#ebb563',
-      colorWarningActive: '#cf9236',
+      // 警告色
+      colorWarning: '#F3EDF7',
+      colorWarningHover: '#E8DEF8',
+      colorWarningActive: '#D0BCFF',
       
-      // 错误色 - 低饱和度红色
-      colorError: '#f56c6c',
-      colorErrorHover: '#f78989',
-      colorErrorActive: '#e65252',
+      // 错误色
+      colorError: '#7D5260',
+      colorErrorHover: '#6D4A56',
+      colorErrorActive: '#5D4046',
       
-      // 信息色 - 低饱和度蓝色
-      colorInfo: '#909399',
-      colorInfoHover: '#a6a9ad',
-      colorInfoActive: '#73767a',
+      // 信息色
+      colorInfo: '#5A469A',
+      colorInfoHover: '#4B3B87',
+      colorInfoActive: '#3C2A75',
       
       // 卡片阴影
-      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
-      boxShadowSecondary: '0 4px 16px rgba(0, 0, 0, 0.08)',
+      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+      boxShadowSecondary: '0 4px 16px rgba(0, 0, 0, 0.12)',
       
       // 圆角
-      borderRadius: 4,
-      borderRadiusLG: 8,
-      borderRadiusSM: 2,
+      borderRadius: 8,
+      borderRadiusLG: 12,
+      borderRadiusSM: 6,
     },
   };
 
@@ -105,25 +105,31 @@ const App: React.FC = () => {
   };
 
   return (
-    <ConfigProvider theme={lowSaturationTheme}>
+    <ConfigProvider theme={designSystemTheme}>
       <Layout>
         <Header style={{ padding: 0, background: '#fff', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ padding: '0 24px', fontSize: 18, fontWeight: 500 }}>
-            基于规则的大模型多模态智能审核平台
+            智能审核平台
           </div>
           <Button 
-            type="primary" 
+            type="default" 
             icon={<KeyOutlined />} 
             onClick={() => {
               fetchApiConfig();
               setApiConfigModalVisible(true);
             }}
-            style={{ marginRight: 24 }}
+            style={{ 
+              marginRight: 24,
+              backgroundColor: '#F3EDF7',
+              border: '1px solid #79747E',
+              borderRadius: '8px',
+              color: '#1C1B1F'
+            }}
           >
             配置大模型API
           </Button>
         </Header>
-        <Content style={{ margin: '24px', padding: 24, background: '#fff', borderRadius: 8, boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)' }}>
+        <Content style={{ margin: 0, padding: 0, background: 'transparent' }}>
           <Tabs
             activeKey={activeKey}
             onChange={handleTabChange}
@@ -159,6 +165,16 @@ const App: React.FC = () => {
                 children: <TemplateLibrary />,
               },
             ]}
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderRadius: '0',
+              boxShadow: 'none',
+              border: 'none'
+            }}
+            tabBarStyle={{
+              borderBottom: '1px solid #79747E',
+              padding: '0 24px'
+            }}
           />
         </Content>
 

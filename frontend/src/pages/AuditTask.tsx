@@ -391,17 +391,52 @@ const AuditTask: React.FC = () => {
   ];
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <h2 className="page-title">审核任务流</h2>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => showTaskModal()}>
+    <div style={{ 
+      minHeight: '100vh', 
+      backgroundColor: '#FFFFFF',
+      padding: '24px'
+    }}>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        marginBottom: '24px',
+        padding: '16px 0'
+      }}>
+
+        <Button 
+          type="primary" 
+          icon={<PlusOutlined />} 
+          onClick={() => showTaskModal()}
+          style={{
+            backgroundColor: '#6750A4',
+            border: 'none',
+            borderRadius: '8px',
+            color: '#FFFFFF'
+          }}
+        >
           新建审核任务
         </Button>
       </div>
       
-      <Tabs defaultActiveKey="tasks">
+      <Tabs 
+        defaultActiveKey="tasks"
+        style={{
+          backgroundColor: '#FFFFFF',
+          borderRadius: '12px',
+          padding: '16px',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+          border: '1px solid #79747E'
+        }}
+        tabBarStyle={{
+          marginBottom: '20px'
+        }}
+      >
         {/* 审核任务列表 */}
-        <TabPane tab="任务列表" key="tasks">
+        <TabPane 
+          tab={<span style={{ color: '#1C1B1F', fontSize: '15px', fontWeight: 500 }}>任务列表</span>} 
+          key="tasks"
+        >
           <Table
             columns={taskColumns}
             dataSource={tasks}
@@ -409,6 +444,10 @@ const AuditTask: React.FC = () => {
             loading={loading}
             pagination={{
               pageSize: 10,
+              style: {
+                marginTop: '20px',
+                color: '#49454F'
+              }
             }}
             onRow={(record) => ({
               onClick: () => {
@@ -416,16 +455,55 @@ const AuditTask: React.FC = () => {
                   fetchResults(record._id);
                 }
               },
+              style: {
+                cursor: record.status === 'completed' ? 'pointer' : 'default',
+                '&:hover': {
+                  backgroundColor: '#F3EDF7'
+                }
+              }
             })}
+            style={{
+              backgroundColor: '#FFFFFF'
+            }}
+            bordered={false}
+            components={{
+              header: {
+                cell: (props: any) => (
+                  <th {...props} style={{
+                    backgroundColor: '#F3EDF7',
+                    color: '#1C1B1F',
+                    fontWeight: 600,
+                    borderBottom: '1px solid #79747E'
+                  }} />
+                )
+              },
+              body: {
+                cell: (props: any) => (
+                  <td {...props} style={{
+                    color: '#49454F',
+                    borderBottom: '1px solid #E7E0EC'
+                  }} />
+                )
+              }
+            }}
           />
         </TabPane>
         
         {/* 审核结果 */}
-        <TabPane tab="审核结果" key="results">
+        <TabPane 
+          tab={<span style={{ color: '#1C1B1F', fontSize: '15px', fontWeight: 500 }}>审核结果</span>} 
+          key="results"
+        >
           {selectedTaskId ? (
             <>
-              <div style={{ marginBottom: 16 }}>
-                <strong>任务ID:</strong> {selectedTaskId}
+              <div style={{ 
+                marginBottom: '20px',
+                padding: '12px 16px',
+                backgroundColor: '#E8DEF8',
+                borderRadius: '8px',
+                border: '1px solid #79747E'
+              }}>
+                <strong style={{ color: '#1C1B1F' }}>任务ID:</strong> <span style={{ color: '#49454F' }}>{selectedTaskId}</span>
               </div>
               <Table
                 columns={resultColumns}
@@ -433,11 +511,48 @@ const AuditTask: React.FC = () => {
                 rowKey="_id"
                 pagination={{
                   pageSize: 10,
+                  style: {
+                    marginTop: '20px',
+                    color: '#49454F'
+                  }
+                }}
+                style={{
+                  backgroundColor: '#FFFFFF'
+                }}
+                bordered={false}
+                components={{
+                  header: {
+                    cell: (props: any) => (
+                      <th {...props} style={{
+                        backgroundColor: '#F3EDF7',
+                        color: '#1C1B1F',
+                        fontWeight: 600,
+                        borderBottom: '1px solid #79747E'
+                      }} />
+                    )
+                  },
+                  body: {
+                    cell: (props: any) => (
+                      <td {...props} style={{
+                        color: '#49454F',
+                        borderBottom: '1px solid #E7E0EC'
+                      }} />
+                    )
+                  }
                 }}
               />
             </>
           ) : (
-            <div style={{ padding: 40, textAlign: 'center', color: '#999' }}>
+            <div style={{ 
+              padding: '60px 20px', 
+              textAlign: 'center', 
+              color: '#49454F',
+              fontSize: '15px',
+              backgroundColor: '#E7E0EC',
+              borderRadius: '8px',
+              border: '1px solid #79747E',
+              margin: '20px 0'
+            }}>
               请选择一个已完成的审核任务查看结果
             </div>
           )}
@@ -446,47 +561,126 @@ const AuditTask: React.FC = () => {
       
       {/* 审核任务模态框 */}
       <Modal
-        title={editingTask ? '编辑审核任务' : '新建审核任务'}
+        title={<span style={{ color: '#1C1B1F', fontSize: '18px', fontWeight: 600 }}>{editingTask ? '编辑审核任务' : '新建审核任务'}</span>}
         open={taskModalVisible}
         onCancel={handleTaskCancel}
         footer={null}
+        style={{
+          top: '10%'
+        }}
+        bodyStyle={{
+          backgroundColor: '#FFFBFE',
+          borderRadius: '12px'
+        }}
+        wrapClassName="custom-modal"
       >
         <Form
           form={taskForm}
           layout="vertical"
+          style={{
+            backgroundColor: '#FFFBFE',
+            padding: '16px 0'
+          }}
         >
           <Form.Item
             name="name"
-            label="任务名称"
+            label={<span style={{ color: '#1C1B1F', fontWeight: 500 }}>任务名称</span>}
             rules={[{ required: true, message: '请输入任务名称' }]}
+            style={{
+              marginBottom: '20px'
+            }}
           >
-            <Input placeholder="请输入任务名称" />
+            <Input 
+              placeholder="请输入任务名称" 
+              style={{
+                backgroundColor: '#E7E0EC',
+                border: '1px solid #79747E',
+                borderRadius: '8px',
+                color: '#1C1B1F'
+              }}
+            />
           </Form.Item>
           <Form.Item
             name="scene_id"
-            label="选择业务场景"
+            label={<span style={{ color: '#1C1B1F', fontWeight: 500 }}>选择业务场景</span>}
             rules={[{ required: true, message: '请选择业务场景' }]}
+            style={{
+              marginBottom: '20px'
+            }}
           >
-            <Select placeholder="请选择业务场景">
+            <Select 
+              placeholder="请选择业务场景"
+              style={{
+                backgroundColor: '#E7E0EC',
+                border: '1px solid #79747E',
+                borderRadius: '8px',
+                color: '#1C1B1F'
+              }}
+            >
               {scenes.map(scene => (
-                <Option key={scene._id} value={scene._id}>{scene.name}</Option>
+                <Option 
+                  key={scene._id} 
+                  value={scene._id}
+                  style={{
+                    color: '#1C1B1F'
+                  }}
+                >{scene.name}</Option>
               ))}
             </Select>
           </Form.Item>
           <Form.Item
             name="use_knowledge_base"
-            label="关联知识库"
+            label={<span style={{ color: '#1C1B1F', fontWeight: 500 }}>关联知识库</span>}
+            style={{
+              marginBottom: '24px'
+            }}
           >
-            <Select placeholder="请选择是否关联知识库">
-              <Option value={true}>是</Option>
-              <Option value={false}>否</Option>
+            <Select 
+              placeholder="请选择是否关联知识库"
+              style={{
+                backgroundColor: '#E7E0EC',
+                border: '1px solid #79747E',
+                borderRadius: '8px',
+                color: '#1C1B1F'
+              }}
+            >
+              <Option 
+                value={true}
+                style={{
+                  color: '#1C1B1F'
+                }}
+              >是</Option>
+              <Option 
+                value={false}
+                style={{
+                  color: '#1C1B1F'
+                }}
+              >否</Option>
             </Select>
           </Form.Item>
-          <Form.Item style={{ textAlign: 'right' }}>
-            <Button onClick={handleTaskCancel} style={{ marginRight: 8 }}>
+          <Form.Item style={{ textAlign: 'right', marginBottom: 0 }}>
+            <Button 
+              onClick={handleTaskCancel} 
+              style={{ 
+                marginRight: '12px',
+                backgroundColor: '#F3EDF7',
+                border: '1px solid #79747E',
+                color: '#1C1B1F',
+                borderRadius: '8px'
+              }}
+            >
               取消
             </Button>
-            <Button type="primary" onClick={handleTaskSubmit}>
+            <Button 
+              type="primary" 
+              onClick={handleTaskSubmit}
+              style={{
+                backgroundColor: '#6750A4',
+                border: 'none',
+                borderRadius: '8px',
+                color: '#FFFFFF'
+              }}
+            >
               确定
             </Button>
           </Form.Item>

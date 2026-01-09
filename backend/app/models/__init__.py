@@ -139,3 +139,16 @@ class TemplateUpdate(BaseModel):
 class Template(TemplateBase, BaseDBModel):
     class Config(BaseDBModel.Config):
         pass
+
+# 7. 提示词优化模型
+class PromptOptimizeRequest(BaseModel):
+    description: str = Field(..., description="需要优化的原始规则描述")
+    
+class PromptOptimizeResponse(BaseModel):
+    original_description: str
+    optimized_prompt: str
+
+# 8. 执行逻辑保存请求模型
+class ExecutionLogicSaveRequest(BaseModel):
+    rule_id: str
+    description: str

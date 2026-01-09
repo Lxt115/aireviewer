@@ -314,6 +314,21 @@ class AIService:
             # 返回错误响应
             return "抱歉，处理您的请求时发生错误，请稍后重试。"
     
+    def load_prompt(self, prompt_name: str) -> str:
+        """
+        从文件加载提示词
+        :param prompt_name: 提示词名称
+        :return: 提示词内容
+        """
+        prompt_path = os.path.join(os.path.dirname(__file__), '../prompts', f'{prompt_name}.txt')
+        try:
+            with open(prompt_path, 'r', encoding='utf-8') as f:
+                return f.read().strip()
+        except Exception as e:
+            safe_log("error", f"Error loading prompt {prompt_name}: {e}")
+            # 返回默认提示词
+            return "请根据要求优化执行逻辑。"
+    
     async def optimize_prompt(self, original_prompt: str) -> str:
         """
         优化规则描述为更清晰、更准确的AI提示词
@@ -325,25 +340,19 @@ class AIService:
             return f"{original_prompt}（模拟优化：建议增加更详细的审核标准和示例）"
             
         try:
+            # 加载执行逻辑优化提示词
+            execution_optimization_prompt = self.load_prompt('execution_optimization')
+            
             prompt = f"""
-            作为一名AI提示词优化专家，请将以下规则描述优化为更清晰、更准确、更适合AI理解的提示词：
+            {execution_optimization_prompt}
             
-            原始规则描述：{original_prompt}
-            
-            优化要求：
-            1. 保持原意不变
-            2. 语言更清晰、更准确
-            3. 结构更合理，便于AI理解
-            4. 突出关键审核点和判断逻辑
-            5. 增加必要的上下文说明
-            
-            请直接输出优化后的提示词，不要添加任何额外解释。
+            原始执行逻辑：{original_prompt}
             """
             
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": "你是一名专业的AI提示词优化专家，擅长将自然语言描述转化为清晰、准确、适合AI理解的提示词。"},
+                    {"role": "system", "content": "你是一名专业的逻辑优化助手，擅长将模糊的执行目标转化为清晰、可操作、可分步骤执行的优化逻辑。"},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.3

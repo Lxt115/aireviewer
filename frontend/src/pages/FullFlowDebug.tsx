@@ -97,6 +97,8 @@ const FullFlowDebug: React.FC = () => {
   // 面板状态
   const [sceneRuleCollapsed, setSceneRuleCollapsed] = useState(false);
   const [showValidationResults, setShowValidationResults] = useState(false);
+  // 保存状态
+  const [saving, setSaving] = useState(false);
   // 监听校验结果变化，控制面板显示
   useEffect(() => {
     setShowValidationResults(validationResults.length > 0);
@@ -541,6 +543,36 @@ const FullFlowDebug: React.FC = () => {
       setOptimizing(false);
     }
   };
+  
+  // 保存执行逻辑
+  const saveExecutionLogic = async () => {
+    if (!debugRuleDescription.trim()) {
+      message.error('请先输入执行逻辑');
+      return;
+    }
+    
+    setSaving(true);
+    try {
+      // 调用后端保存API
+      await axios.post('http://localhost:8000/api/rules/save-execution-logic', {
+        rule_id: selectedRule,
+        description: debugRuleDescription.trim()
+      });
+      
+      message.success('执行逻辑保存成功');
+    } catch (error) {
+      message.error('执行逻辑保存失败');
+      console.error('Error saving execution logic:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+  
+  // 取消编辑
+  const cancelEdit = () => {
+    // 这里可以添加取消逻辑，比如恢复之前保存的执行逻辑
+    message.info('编辑已取消');
+  };
 
   // 切换结果展开状态
   const toggleResultExpanded = (fileName: string) => {
@@ -552,7 +584,7 @@ const FullFlowDebug: React.FC = () => {
 
   return (
     <div className="full-flow-debug" style={{ height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: '16px' }}>
-      <h2 className="page-title" style={{ marginBottom: '16px' }}>全流程调试界面</h2>
+
       
       <div style={{ display: 'flex', flex: 1, gap: '16px', overflow: 'hidden' }}>
         {/* 左侧：业务场景与规则 */}
@@ -568,49 +600,85 @@ const FullFlowDebug: React.FC = () => {
                   icon={<MinusOutlined />} 
                   onClick={() => setSceneRuleCollapsed(true)}
                   size="small"
-                  style={{ backgroundColor: '#f0f0f0' }}
+                  style={{
+                    backgroundColor: '#F3EDF7',
+                    border: '1px solid #79747E',
+                    borderRadius: '8px',
+                    color: '#1C1B1F'
+                  }}
                 >
                   收起目录
                 </Button>
               }
-              style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+              style={{
+              flex: 1, 
+              overflow: 'hidden', 
+              display: 'flex', 
+              flexDirection: 'column',
+              backgroundColor: '#FFFFFF',
+              borderRadius: '12px',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+              border: '1px solid #79747E'
+            }}
             >
               <div style={{ display: 'flex', gap: '16px', overflow: 'hidden', flex: 1 }}>
               {/* 业务场景 */}
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 'bold' }}>业务场景</h4>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', padding: '0 8px' }}>
+                  <h4 style={{ 
+                    margin: 0, 
+                    fontSize: '15px', 
+                    fontWeight: 600, 
+                    color: '#1C1B1F'
+                  }}>业务场景</h4>
                   <Button 
                     type="primary" 
                     icon={<PlusOutlined />} 
                     onClick={() => showSceneModal()} 
                     size="small"
-                    style={{ height: '28px', fontSize: '12px' }}
+                    style={{
+                      height: '32px', 
+                      fontSize: '13px',
+                      backgroundColor: '#6750A4',
+                      border: 'none',
+                      borderRadius: '8px',
+                      color: '#FFFFFF',
+                      '&:hover': {
+                        backgroundColor: '#5A469A',
+                        boxShadow: '0 4px 12px rgba(103, 80, 164, 0.3)'
+                      }
+                    }}
                   >
                     新建
                   </Button>
                 </div>
                 
-                <div style={{ flex: 1, overflowY: 'auto' }}>
+                <div style={{ flex: 1, overflowY: 'auto', padding: '0 8px' }}>
                   {scenes.map((scene) => (
                     <div 
                       key={scene._id}
                       onClick={() => setSelectedScene(scene._id)}
                     style={{
-                      padding: '8px 12px',
-                      marginBottom: '4px',
-                      borderRadius: '4px',
+                      padding: '10px 12px',
+                      marginBottom: '8px',
+                      borderRadius: '8px',
                       cursor: 'pointer',
-                      backgroundColor: selectedScene === scene._id ? '#e6eef5' : 'transparent',
+                      backgroundColor: selectedScene === scene._id ? '#F3EDF7' : 'transparent',
+                      border: `1px solid ${selectedScene === scene._id ? '#6750A4' : 'transparent'}`,
                       display: 'flex',
                       justifyContent: 'space-between',
-                      alignItems: 'center'
+                      alignItems: 'center',
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        backgroundColor: '#E8DEF8',
+                        borderColor: '#6750A4'
+                      }
                     }}
                     >
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{scene.name}</div>
+                        <div style={{ fontWeight: 500, fontSize: '14px', color: '#1C1B1F' }}>{scene.name}</div>
                       </div>
-                      <div style={{ display: 'flex', gap: '2px' }}>
+                      <div style={{ display: 'flex', gap: '4px' }}>
                         <Button 
                           type="text" 
                           icon={<EditOutlined />} 
@@ -619,7 +687,18 @@ const FullFlowDebug: React.FC = () => {
                             showSceneModal(scene);
                           }} 
                           size="small"
-                          style={{ padding: '0 4px', fontSize: '12px', minWidth: '24px', height: '24px', lineHeight: '24px' }}
+                          style={{ 
+                            padding: '0 6px', 
+                            fontSize: '12px', 
+                            minWidth: '28px', 
+                            height: '28px', 
+                            lineHeight: '28px',
+                            color: '#6750A4',
+                            '&:hover': {
+                              color: '#5A469A',
+                              backgroundColor: 'rgba(103, 80, 164, 0.1)'
+                            }
+                          }}
                         />
                         <Button 
                           type="text" 
@@ -630,7 +709,18 @@ const FullFlowDebug: React.FC = () => {
                             handleSceneDelete(scene._id);
                           }} 
                           size="small"
-                          style={{ padding: '0 4px', fontSize: '12px', minWidth: '24px', height: '24px', lineHeight: '24px' }}
+                          style={{ 
+                            padding: '0 6px', 
+                            fontSize: '12px', 
+                            minWidth: '28px', 
+                            height: '28px', 
+                            lineHeight: '28px',
+                            color: '#7D5260',
+                            '&:hover': {
+                              color: '#6B46C1',
+                              backgroundColor: 'rgba(125, 82, 96, 0.1)'
+                            }
+                          }}
                         />
                       </div>
                     </div>
@@ -638,27 +728,52 @@ const FullFlowDebug: React.FC = () => {
                 </div>
               </div>
               
-              {/* 垂直分隔线 */}
-              <div style={{ width: '1px', backgroundColor: '#f0f0f0', margin: '0 8px' }}></div>
+              
               
               {/* 规则 */}
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 'bold' }}>规则</h4>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', padding: '0 8px' }}>
+                  <h4 style={{ 
+                    margin: 0, 
+                    fontSize: '15px', 
+                    fontWeight: 600, 
+                    color: '#1C1B1F'
+                  }}>规则</h4>
+                  <Button 
+                    type="primary" 
+                    icon={<PlusOutlined />} 
+                    onClick={() => showRuleModal()} 
+                    size="small"
+                    style={{
+                      height: '32px', 
+                      fontSize: '13px',
+                      backgroundColor: '#6750A4',
+                      border: 'none',
+                      borderRadius: '8px',
+                      color: '#FFFFFF',
+                      '&:hover': {
+                        backgroundColor: '#5A469A',
+                        boxShadow: '0 4px 12px rgba(103, 80, 164, 0.3)'
+                      }
+                    }}
+                  >
+                    新建
+                  </Button>
                 </div>
                 
-                <div style={{ flex: 1, overflowY: 'auto' }}>
+                <div style={{ flex: 1, overflowY: 'auto', padding: '0 8px' }}>
                   {selectedScene ? (
                     <>
                       {/* 直接添加规则输入框 */}
-                      <div style={{ marginBottom: '8px' }}>
+                      <div style={{ marginBottom: '12px' }}>
                         {showNewRuleInput ? (
                           <div style={{ 
-                            padding: '8px 12px', 
-                            borderRadius: '4px', 
-                            backgroundColor: '#f0f0f0',
+                            padding: '12px', 
+                            borderRadius: '8px', 
+                            backgroundColor: '#E7E0EC',
+                            border: '1px solid #79747E',
                             display: 'flex',
-                            gap: '8px',
+                            gap: '10px',
                             alignItems: 'center'
                           }}>
                             <Input
@@ -666,13 +781,35 @@ const FullFlowDebug: React.FC = () => {
                               value={newRuleName}
                               onChange={(e) => setNewRuleName(e.target.value)}
                               onPressEnter={handleAddRuleDirectly}
-                              style={{ flex: 1, height: '32px', fontSize: '14px' }}
+                              style={{ 
+                                flex: 1, 
+                                height: '36px', 
+                                fontSize: '14px',
+                                backgroundColor: '#FFFFFF',
+                                border: '1px solid #79747E',
+                                borderRadius: '6px',
+                                '&:focus': {
+                                  borderColor: '#6750A4',
+                                  boxShadow: '0 0 0 2px rgba(103, 80, 164, 0.2)'
+                                }
+                              }}
                             />
                             <Button 
                               type="primary" 
                               size="small"
                               onClick={handleAddRuleDirectly}
-                              style={{ height: '32px', fontSize: '12px' }}
+                              style={{ 
+                                height: '36px', 
+                                fontSize: '13px',
+                                backgroundColor: '#6750A4',
+                                border: 'none',
+                                borderRadius: '8px',
+                                color: '#FFFFFF',
+                                '&:hover': {
+                                  backgroundColor: '#5A469A',
+                                  boxShadow: '0 4px 12px rgba(103, 80, 164, 0.3)'
+                                }
+                              }}
                             >
                               保存
                             </Button>
@@ -683,7 +820,18 @@ const FullFlowDebug: React.FC = () => {
                                 setShowNewRuleInput(false);
                                 setNewRuleName('');
                               }}
-                              style={{ height: '32px', fontSize: '12px' }}
+                              style={{ 
+                                height: '36px', 
+                                fontSize: '13px',
+                                backgroundColor: '#F3EDF7',
+                                border: '1px solid #79747E',
+                                borderRadius: '8px',
+                                color: '#1C1B1F',
+                                '&:hover': {
+                                  backgroundColor: '#E8DEF8',
+                                  borderColor: '#6750A4'
+                                }
+                              }}
                             >
                               取消
                             </Button>
@@ -694,7 +842,20 @@ const FullFlowDebug: React.FC = () => {
                             icon={<PlusOutlined />} 
                             onClick={() => setShowNewRuleInput(true)}
                             size="small"
-                            style={{ width: '100%', height: '32px', fontSize: '12px', justifyContent: 'center' }}
+                            style={{ 
+                              width: '100%', 
+                              height: '36px', 
+                              fontSize: '13px', 
+                              justifyContent: 'center',
+                              backgroundColor: '#F3EDF7',
+                              border: '1px dashed #6750A4',
+                              borderRadius: '8px',
+                              color: '#6750A4',
+                              '&:hover': {
+                                backgroundColor: '#E8DEF8',
+                                borderColor: '#6750A4'
+                              }
+                            }}
                           >
                             点击添加新规则
                           </Button>
@@ -707,19 +868,25 @@ const FullFlowDebug: React.FC = () => {
                           <div 
                             onClick={() => setSelectedRule(rule._id)}
                           style={{
-                            padding: '8px 12px',
-                            borderRadius: '4px',
+                            padding: '10px 12px',
+                            borderRadius: '8px',
                             cursor: 'pointer',
-                            backgroundColor: selectedRule === rule._id ? '#e6eef5' : 'transparent',
+                            backgroundColor: selectedRule === rule._id ? '#F3EDF7' : 'transparent',
+                            border: `1px solid ${selectedRule === rule._id ? '#6750A4' : 'transparent'}`,
                             display: 'flex',
                             justifyContent: 'space-between',
-                            alignItems: 'center'
+                            alignItems: 'center',
+                            transition: 'all 0.2s ease',
+                            '&:hover': {
+                              backgroundColor: '#E8DEF8',
+                              borderColor: '#6750A4'
+                            }
                           }}
                           >
                             <div style={{ flex: 1 }}>
-                              <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{rule.name}</div>
+                              <div style={{ fontWeight: 500, fontSize: '14px', color: '#1C1B1F' }}>{rule.name}</div>
                             </div>
-                            <div style={{ display: 'flex', gap: '2px' }}>
+                            <div style={{ display: 'flex', gap: '4px' }}>
                               <Button 
                                 type="text" 
                                 icon={<EditOutlined />} 
@@ -728,7 +895,18 @@ const FullFlowDebug: React.FC = () => {
                                   showRuleModal(rule);
                                 }} 
                                 size="small"
-                                style={{ padding: '0 4px', fontSize: '12px', minWidth: '24px', height: '24px', lineHeight: '24px' }}
+                                style={{ 
+                                  padding: '0 6px', 
+                                  fontSize: '12px', 
+                                  minWidth: '28px', 
+                                  height: '28px', 
+                                  lineHeight: '28px',
+                                  color: '#6750A4',
+                                  '&:hover': {
+                                    color: '#5A469A',
+                                    backgroundColor: 'rgba(103, 80, 164, 0.1)'
+                                  }
+                                }}
                               />
                               <Button 
                                 type="text" 
@@ -739,7 +917,18 @@ const FullFlowDebug: React.FC = () => {
                                   handleRuleDelete(rule._id);
                                 }} 
                                 size="small"
-                                style={{ padding: '0 4px', fontSize: '12px', minWidth: '24px', height: '24px', lineHeight: '24px' }}
+                                style={{ 
+                                  padding: '0 6px', 
+                                  fontSize: '12px', 
+                                  minWidth: '28px', 
+                                  height: '28px', 
+                                  lineHeight: '28px',
+                                  color: '#7D5260',
+                                  '&:hover': {
+                                    color: '#6B46C1',
+                                    backgroundColor: 'rgba(125, 82, 96, 0.1)'
+                                  }
+                                }}
                               />
                             </div>
                           </div>
@@ -747,7 +936,15 @@ const FullFlowDebug: React.FC = () => {
                       ))}
                     </>
                   ) : (
-                    <div style={{ textAlign: 'center', color: '#999', padding: '20px 0', fontSize: '14px' }}>
+                    <div style={{ 
+                      textAlign: 'center', 
+                      color: '#49454F', 
+                      padding: '30px 0', 
+                      fontSize: '14px',
+                      backgroundColor: '#E7E0EC',
+                      borderRadius: '8px',
+                      margin: '20px 0'
+                    }}>
                       请先选择一个业务场景
                     </div>
                   )}
@@ -769,113 +966,253 @@ const FullFlowDebug: React.FC = () => {
                     icon={<PlusOutlined />} 
                     onClick={() => setSceneRuleCollapsed(false)}
                     size="small"
-                    style={{ backgroundColor: '#f0f0f0' }}
+                    style={{
+                      backgroundColor: '#F3EDF7',
+                      border: '1px solid #79747E',
+                      borderRadius: '8px',
+                      color: '#1C1B1F',
+                      '&:hover': {
+                        backgroundColor: '#E8DEF8',
+                        borderColor: '#6750A4'
+                      }
+                    }}
                   >
                     展开目录
                   </Button>
-                  规则校验
+                  规则设置
                 </div>
-              ) : '规则校验'
+              ) : '规则设置'
             } 
             bordered={false} 
-            style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+            extra={
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <Button 
+                  type="default" 
+                  size="small"
+                  onClick={cancelEdit}
+                  style={{
+                    backgroundColor: '#F3EDF7',
+                    border: '1px solid #79747E',
+                    borderRadius: '8px',
+                    color: '#1C1B1F',
+                    '&:hover': {
+                      backgroundColor: '#E8DEF8',
+                      borderColor: '#6750A4'
+                    }
+                  }}
+                >
+                  取消
+                </Button>
+                <Button 
+                  type="primary" 
+                  size="small"
+                  onClick={saveExecutionLogic}
+                  loading={saving}
+                  style={{
+                    backgroundColor: '#6750A4',
+                    border: 'none',
+                    borderRadius: '8px',
+                    color: '#FFFFFF',
+                    '&:hover': {
+                      backgroundColor: '#5A469A',
+                      boxShadow: '0 4px 12px rgba(103, 80, 164, 0.3)'
+                    }
+                  }}
+                >
+                  保存
+                </Button>
+              </div>
+            }
+            style={{ 
+              flex: 1, 
+              overflow: 'hidden', 
+              display: 'flex', 
+              flexDirection: 'column',
+              backgroundColor: '#FFFFFF',
+              borderRadius: '12px',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+              border: '1px solid #79747E'
+            }}
           >
             <Form style={{ flex: 1, overflow: 'auto', paddingRight: '8px' }}>
-              {/* AI优化工作流卡片 */}
-              <Card 
-                title="AI优化工作流" 
-                variant="outlined"
-                style={{ marginBottom: '16px', border: '1px solid #f0f0f0' }}
-                extra={<div style={{ fontSize: '12px', color: '#666' }}>🔍 在此输入原始执行逻辑，AI将为您生成优化方案</div>}
-              >
-                <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
-                  {/* 原始执行逻辑 */}
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '8px', color: '#1890ff' }}>📝 原始执行逻辑</div>
-                    <Input.TextArea
-                      placeholder="请输入执行逻辑，例如：结合关联文档的《巡察整改台账》的【问题描述】信息，判断《整改方案》的整改任务中具体问题是否有缺漏"
-                      rows={4}
-                      value={debugRuleDescription}
-                      onChange={(e) => setDebugRuleDescription(e.target.value)}
-                      style={{ marginBottom: '8px' }}
-                      maxLength={500}
-                      showCount
-                    />
-                  </div>
-                  
-                  {/* 中间操作区 */}
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', paddingTop: '24px' }}>
-                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>
-                      →
-                    </div>
-                    <Button
-                      type="primary"
-                      icon={<MessageOutlined />}
-                      onClick={optimizeRuleDescription}
-                      loading={optimizing}
-                      disabled={!debugRuleDescription.trim()}
-                      size="small"
-                      style={{ minWidth: '120px' }}
-                    >
-                      {optimizing ? '优化中...' : '生成优化结果'}
-                    </Button>
-                    <div style={{ fontSize: '12px', color: '#999' }}>点击生成AI优化方案</div>
-                  </div>
-                  
-                  {/* AI优化结果 */}
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '8px', color: '#52c41a' }}>✨ AI优化结果</div>
-                    <Input.TextArea
-                      placeholder={optimizing ? "AI正在优化中，请稍候..." : "AI优化后的提示词会显示在这里，您可以继续编辑"}
-                      rows={4}
-                      value={optimizedPrompt}
-                      onChange={(e) => setOptimizedPrompt(e.target.value)}
-                      maxLength={1000}
-                      showCount
-                      disabled={optimizing}
-                    />
-                    {optimizedPrompt && (
-                      <div style={{ display: 'flex', gap: '8px', marginTop: '8px', justifyContent: 'flex-end' }}>
-                        <Button
-                          type="default"
-                          size="small"
-                          onClick={() => {
-                            navigator.clipboard.writeText(optimizedPrompt);
-                            message.success('复制成功');
-                          }}
-                        >
-                          复制结果
-                        </Button>
-                        <Button
-                          type="default"
-                          size="small"
-                          onClick={() => setOptimizedPrompt('')}
-                        >
-                          清空
-                        </Button>
-                        <Button
-                          type="primary"
-                          size="small"
-                          onClick={() => setDebugRuleDescription(optimizedPrompt)}
-                        >
-                          应用优化结果
-                        </Button>
-                      </div>
-                    )}
-                  </div>
+              {/* 执行逻辑和优化工作区 */}
+              <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start', marginBottom: '16px' }}>
+                {/* 执行逻辑 */}
+                <div style={{ flex: 1 }}>
+                  <div style={{ 
+                    fontSize: '16px', 
+                    fontWeight: '600', 
+                    marginBottom: '12px', 
+                    color: '#1C1B1F' 
+                  }}>📝 执行逻辑</div>
+                  <Input.TextArea
+                    placeholder="请输入执行逻辑，例如：结合关联文档的《巡察整改台账》的【问题描述】信息，判断《整改方案》的整改任务中具体问题是否有缺漏"
+                    rows={5}
+                    value={debugRuleDescription}
+                    onChange={(e) => setDebugRuleDescription(e.target.value)}
+                    style={{ 
+                      marginBottom: '8px',
+                      backgroundColor: '#E7E0EC',
+                      border: '1px solid #79747E',
+                      borderRadius: '8px',
+                      color: '#1C1B1F',
+                      '&:focus': {
+                        borderColor: '#6750A4',
+                        boxShadow: '0 0 0 2px rgba(103, 80, 164, 0.2)'
+                      }
+                    }}
+                    maxLength={500}
+                    showCount
+                  />
                 </div>
-              </Card>
+                
+                {/* 优化工作区 */}
+                <div style={{ flex: 1 }}>
+                  <div style={{ 
+                    fontSize: '16px', 
+                    fontWeight: '600', 
+                    marginBottom: '12px', 
+                    color: '#1C1B1F' 
+                  }}>✨ 优化工作区</div>
+                  <Input.TextArea
+                    placeholder={optimizing ? "AI正在优化中，请稍候..." : "AI优化后的提示词会显示在这里，您可以继续编辑"}
+                    rows={5}
+                    value={optimizedPrompt}
+                    onChange={(e) => setOptimizedPrompt(e.target.value)}
+                    disabled={optimizing}
+                    style={{ 
+                      backgroundColor: '#E7E0EC',
+                      border: '1px solid #79747E',
+                      borderRadius: '8px',
+                      color: '#1C1B1F',
+                      '&:focus': {
+                        borderColor: '#6750A4',
+                        boxShadow: '0 0 0 2px rgba(103, 80, 164, 0.2)'
+                      }
+                    }}
+                  />
+                  {optimizedPrompt && (
+                    <div style={{ display: 'flex', gap: '10px', marginTop: '12px', justifyContent: 'flex-end' }}>
+                      <Button
+                        type="default"
+                        size="small"
+                        onClick={() => {
+                          navigator.clipboard.writeText(optimizedPrompt);
+                          message.success('复制成功');
+                        }}
+                        style={{
+                          backgroundColor: '#F3EDF7',
+                          border: '1px solid #79747E',
+                          color: '#1C1B1F',
+                          '&:hover': {
+                            backgroundColor: '#E8DEF8',
+                            borderColor: '#6750A4'
+                          }
+                        }}
+                      >
+                        复制结果
+                      </Button>
+                      <Button
+                        type="default"
+                        size="small"
+                        onClick={() => setOptimizedPrompt('')}
+                        style={{
+                          backgroundColor: '#F3EDF7',
+                          border: '1px solid #79747E',
+                          color: '#1C1B1F',
+                          '&:hover': {
+                            backgroundColor: '#E8DEF8',
+                            borderColor: '#6750A4'
+                          }
+                        }}
+                      >
+                        清空
+                      </Button>
+                      <Button
+                        type="primary"
+                        size="small"
+                        onClick={() => setDebugRuleDescription(optimizedPrompt)}
+                        style={{
+                          backgroundColor: '#6750A4',
+                          border: 'none',
+                          color: '#FFFFFF',
+                          '&:hover': {
+                            backgroundColor: '#5A469A',
+                            boxShadow: '0 4px 12px rgba(103, 80, 164, 0.3)'
+                          }
+                        }}
+                      >
+                        应用优化结果
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* AI优化按钮 */}
+              <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'center' }}>
+                <Button
+                  type="primary"
+                  icon={<MessageOutlined />}
+                  onClick={optimizeRuleDescription}
+                  loading={optimizing}
+                  disabled={!debugRuleDescription.trim()}
+                  size="middle"
+                  style={{
+                    minWidth: '160px',
+                    height: '40px',
+                    backgroundColor: '#6750A4',
+                    border: 'none',
+                    borderRadius: '8px',
+                    color: '#FFFFFF',
+                    fontSize: '15px',
+                    '&:hover': {
+                      backgroundColor: '#5A469A',
+                      boxShadow: '0 4px 12px rgba(103, 80, 164, 0.3)'
+                    },
+                    '&:disabled': {
+                      backgroundColor: '#E8DEF8',
+                      color: '#79747E',
+                      boxShadow: 'none'
+                    }
+                  }}
+                >
+                  {optimizing ? '优化中...' : 'AI优化'}
+                </Button>
+              </div>
               
               {/* 待审核文件上传 */}
-              <Form.Item label="待审核文件">
-                <div style={{ border: '1px dashed #d9d9d9', borderRadius: '4px', padding: '12px', minHeight: '100px' }}>
+              <Form.Item 
+                label="待审核文件" 
+                style={{ marginBottom: '20px' }}
+              >
+                <div style={{ 
+                border: '1px dashed #79747E', 
+                borderRadius: '8px', 
+                padding: '20px', 
+                minHeight: '120px',
+                backgroundColor: '#E7E0EC',
+                transition: 'all 0.3s ease'
+              }}>
                   {uploadedFiles.length > 0 ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '12px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
                       {uploadedFiles.map((file) => (
-                        <div key={file.uid} style={{ padding: '6px', backgroundColor: '#f5f5f5', borderRadius: '3px', fontSize: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span>{file.name}</span>
-                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                            <span style={{ color: file.status === 'done' ? '#52c41a' : '#ff4d4f', fontSize: '12px' }}>
+                        <div key={file.uid} style={{ 
+                          padding: '10px 12px', 
+                          backgroundColor: '#F3EDF7', 
+                          borderRadius: '6px', 
+                          fontSize: '14px', 
+                          display: 'flex', 
+                          justifyContent: 'space-between', 
+                          alignItems: 'center',
+                          border: '1px solid #79747E'
+                        }}>
+                          <span style={{ color: '#1C1B1F' }}>{file.name}</span>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <span style={{ 
+                              color: file.status === 'done' ? '#6750A4' : '#7D5260', 
+                              fontSize: '13px' 
+                            }}>
                               {file.status === 'done' ? '已上传' : file.status === 'error' ? '上传失败' : file.status === 'uploading' ? '上传中' : ''}
                             </span>
                             {file.status === 'done' && (
@@ -887,7 +1224,11 @@ const FullFlowDebug: React.FC = () => {
                                 onClick={() => {
                                   setUploadedFiles(prev => prev.filter(f => f.uid !== file.uid));
                                 }}
-                                style={{ padding: '0', fontSize: '12px' }}
+                                style={{ 
+                                  padding: '0', 
+                                  fontSize: '13px',
+                                  color: '#7D5260'
+                                }}
                               />
                             )}
                           </div>
@@ -895,7 +1236,13 @@ const FullFlowDebug: React.FC = () => {
                       ))}
                     </div>
                   ) : (
-                    <div style={{ textAlign: 'center', color: '#999', padding: '12px 0', fontSize: '14px', marginBottom: '12px' }}>
+                    <div style={{ 
+                      textAlign: 'center', 
+                      color: '#49454F', 
+                      padding: '16px 0', 
+                      fontSize: '15px', 
+                      marginBottom: '16px'
+                    }}>
                       点击上传待审核文件
                     </div>
                   )}
@@ -918,7 +1265,17 @@ const FullFlowDebug: React.FC = () => {
                       };
                       input.click();
                     }}
-                    size="small"
+                    size="middle"
+                    style={{
+                      backgroundColor: '#6750A4',
+                      border: 'none',
+                      color: '#FFFFFF',
+                      borderRadius: '8px',
+                      '&:hover': {
+                        backgroundColor: '#5A469A',
+                        boxShadow: '0 4px 12px rgba(103, 80, 164, 0.3)'
+                      }
+                    }}
                   >
                     上传文件
                   </Button>
@@ -926,15 +1283,37 @@ const FullFlowDebug: React.FC = () => {
               </Form.Item>
               
               {/* 参考材料上传 */}
-              <Form.Item label="参考材料">
-                <div style={{ border: '1px dashed #d9d9d9', borderRadius: '4px', padding: '12px', minHeight: '100px' }}>
+              <Form.Item 
+                label="参考材料" 
+                style={{ marginBottom: '20px' }}
+              >
+                <div style={{ 
+                border: '1px dashed #79747E', 
+                borderRadius: '8px', 
+                padding: '20px', 
+                minHeight: '120px',
+                backgroundColor: '#E7E0EC',
+                transition: 'all 0.3s ease'
+              }}>
                   {referenceFiles.length > 0 ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '12px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
                       {referenceFiles.map((file: UploadFile) => (
-                        <div key={file.uid} style={{ padding: '6px', backgroundColor: '#f5f5f5', borderRadius: '3px', fontSize: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span>{file.name}</span>
-                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                            <span style={{ color: file.status === 'done' ? '#52c41a' : '#ff4d4f', fontSize: '12px' }}>
+                        <div key={file.uid} style={{ 
+                          padding: '10px 12px', 
+                          backgroundColor: '#F3EDF7', 
+                          borderRadius: '6px', 
+                          fontSize: '14px', 
+                          display: 'flex', 
+                          justifyContent: 'space-between', 
+                          alignItems: 'center',
+                          border: '1px solid #79747E'
+                        }}>
+                          <span style={{ color: '#1C1B1F' }}>{file.name}</span>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <span style={{ 
+                              color: file.status === 'done' ? '#6750A4' : '#7D5260', 
+                              fontSize: '13px' 
+                            }}>
                               {file.status === 'done' ? '已上传' : file.status === 'error' ? '上传失败' : file.status === 'uploading' ? '上传中' : ''}
                             </span>
                             {file.status === 'done' && (
@@ -946,7 +1325,11 @@ const FullFlowDebug: React.FC = () => {
                                 onClick={() => {
                                   setReferenceFiles(prev => prev.filter(f => f.uid !== file.uid));
                                 }}
-                                style={{ padding: '0', fontSize: '12px' }}
+                                style={{ 
+                                  padding: '0', 
+                                  fontSize: '13px',
+                                  color: '#7D5260'
+                                }}
                               />
                             )}
                           </div>
@@ -954,11 +1337,18 @@ const FullFlowDebug: React.FC = () => {
                       ))}
                     </div>
                   ) : (
-                    <div style={{ textAlign: 'center', color: '#999', padding: '12px 0', fontSize: '14px', marginBottom: '12px' }}>
+                    <div style={{ 
+                      textAlign: 'center', 
+                      color: '#49454F', 
+                      padding: '16px 0', 
+                      fontSize: '15px', 
+                      marginBottom: '16px'
+                    }}>
                       点击上传参考材料（可选）
                     </div>
                   )}
                   <Button 
+                    type="default"
                     icon={<UploadOutlined />} 
                     onClick={() => {
                       // 触发文件选择
@@ -976,14 +1366,24 @@ const FullFlowDebug: React.FC = () => {
                       };
                       input.click();
                     }}
-                    size="small"
+                    size="middle"
+                    style={{
+                      backgroundColor: '#F3EDF7',
+                      border: '1px solid #79747E',
+                      color: '#1C1B1F',
+                      borderRadius: '8px',
+                      '&:hover': {
+                        backgroundColor: '#E8DEF8',
+                        borderColor: '#6750A4'
+                      }
+                    }}
                   >
                     上传参考材料
                   </Button>
                 </div>
               </Form.Item>
               
-              <Form.Item style={{ textAlign: 'center', marginTop: '20px' }}>
+              <Form.Item style={{ textAlign: 'center', marginTop: '16px' }}>
                 <Button 
                   type="primary" 
                   icon={<PlayCircleOutlined />} 
@@ -991,7 +1391,24 @@ const FullFlowDebug: React.FC = () => {
                   loading={validating}
                   disabled={!selectedRule || uploadedFiles.length === 0}
                   size="large"
-                  style={{ width: '100%', height: '40px', fontSize: '14px' }}
+                  style={{ 
+                    width: '100%', 
+                    height: '44px', 
+                    fontSize: '16px',
+                    backgroundColor: '#6750A4',
+                    border: 'none',
+                    borderRadius: '8px',
+                    color: '#FFFFFF',
+                    '&:hover': {
+                      backgroundColor: '#5A469A',
+                      boxShadow: '0 4px 12px rgba(103, 80, 164, 0.3)'
+                    },
+                    '&:disabled': {
+                      backgroundColor: '#E8DEF8',
+                      color: '#79747E',
+                      boxShadow: 'none'
+                    }
+                  }}
                 >
                   开始校验
                 </Button>
@@ -1004,26 +1421,41 @@ const FullFlowDebug: React.FC = () => {
         {showValidationResults && (
           <div style={{ flex: sceneRuleCollapsed ? 0.4 : 0.35, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             {/* 校验结果 */}
-            <Card title="校验结果" bordered={false} style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <Card title="校验结果" bordered={false} style={{ 
+              flex: 1, 
+              overflow: 'hidden', 
+              display: 'flex', 
+              flexDirection: 'column',
+              backgroundColor: '#FFFFFF',
+              borderRadius: '12px',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+              border: '1px solid #79747E'
+            }}>
             <div style={{ flex: 1, overflow: 'auto', paddingRight: '8px' }}>
               {validationResults.length > 0 ? (
                 <>
                   {/* 结果统计 */}
-                  <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#f0f5ff', borderRadius: '4px' }}>
-                    <div style={{ display: 'flex', gap: '24px', fontSize: '14px' }}>
+                  <div style={{ 
+                    marginBottom: '16px', 
+                    padding: '16px', 
+                    backgroundColor: '#E8DEF8', 
+                    borderRadius: '8px',
+                    border: '1px solid #79747E'
+                  }}>
+                    <div style={{ display: 'flex', gap: '24px', fontSize: '15px' }}>
                       <div>
-                        <span style={{ fontWeight: 'bold', marginRight: '8px' }}>总文件数：</span>
-                        <span>{validationResults.length}</span>
+                        <span style={{ fontWeight: '600', marginRight: '8px', color: '#1C1B1F' }}>总文件数：</span>
+                        <span style={{ color: '#49454F' }}>{validationResults.length}</span>
                       </div>
                       <div>
-                        <span style={{ fontWeight: 'bold', marginRight: '8px' }}>通过：</span>
-                        <span style={{ color: '#52c41a', fontWeight: 'bold' }}>
+                        <span style={{ fontWeight: '600', marginRight: '8px', color: '#1C1B1F' }}>通过：</span>
+                        <span style={{ color: '#6750A4', fontWeight: '600' }}>
                           {validationResults.filter(item => item.result === '通过').length}
                         </span>
                       </div>
                       <div>
-                        <span style={{ fontWeight: 'bold', marginRight: '8px' }}>不通过：</span>
-                        <span style={{ color: '#ff4d4f', fontWeight: 'bold' }}>
+                        <span style={{ fontWeight: '600', marginRight: '8px', color: '#1C1B1F' }}>不通过：</span>
+                        <span style={{ color: '#7D5260', fontWeight: '600' }}>
                           {validationResults.filter(item => item.result === '不通过').length}
                         </span>
                       </div>
@@ -1036,47 +1468,67 @@ const FullFlowDebug: React.FC = () => {
                       <Card 
                         key={index} 
                         title={item.fileName} 
+                        variant="outlined"
                         bordered={false} 
                         extra={
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <span style={{ 
-                              fontSize: '14px', 
-                              fontWeight: 'bold',
-                              color: item.result === '通过' ? '#52c41a' : '#ff4d4f'
+                              fontSize: '15px', 
+                              fontWeight: '600',
+                              color: item.result === '通过' ? '#6750A4' : '#7D5260'
                             }}>
                               {item.result}
                             </span>
                             {item.result === '通过' ? 
-                              <CheckCircleOutlined style={{ color: '#52c41a', fontSize: '18px' }} /> : 
-                              <DeleteOutlined style={{ color: '#ff4d4f', fontSize: '18px' }} />
+                              <CheckCircleOutlined style={{ color: '#6750A4', fontSize: '18px' }} /> : 
+                              <DeleteOutlined style={{ color: '#7D5260', fontSize: '18px' }} />
                             }
                           </div>
                         }
-                        style={{ boxShadow: '0 2px 8px rgba(0, 0, 0, 0.09)' }}
+                        style={{ 
+                          boxShadow: '0 2px 12px rgba(0, 0, 0, 0.08)',
+                          backgroundColor: '#F3EDF7',
+                          border: '1px solid #79747E',
+                          borderRadius: '8px'
+                        }}
                         actions={[
                           <Button 
                             type="text" 
                             onClick={() => toggleResultExpanded(item.fileName)}
                             size="small"
+                            style={{
+                              color: '#6750A4'
+                            }}
                           >
                             {expandedResults[item.fileName] ? '收起详情' : '查看详情'}
                           </Button>
                         ]}
                       >
-                        <div style={{ fontSize: '14px', color: '#666', marginBottom: '8px' }}>规则：{item.ruleName}</div>
+                        <div style={{ fontSize: '14px', color: '#49454F', marginBottom: '12px' }}>规则：{item.ruleName}</div>
                         
                         {/* 详细理由 - 可折叠 */}
                         {expandedResults[item.fileName] && (
-                          <div style={{ marginTop: '12px', padding: '12px', backgroundColor: '#fafafa', borderRadius: '4px' }}>
-                            <div style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '8px' }}>审核理由：</div>
+                          <div style={{ 
+                            marginTop: '12px', 
+                            padding: '16px', 
+                            backgroundColor: '#E7E0EC', 
+                            borderRadius: '6px',
+                            border: '1px solid #79747E'
+                          }}>
+                            <div style={{ 
+                              fontSize: '15px', 
+                              fontWeight: '600', 
+                              marginBottom: '10px',
+                              color: '#1C1B1F' 
+                            }}>审核理由：</div>
                             {Array.isArray(item.reason) ? (
                               <ul style={{ margin: 0, paddingLeft: '20px' }}>
                                 {item.reason.map((reason: string, idx: number) => (
-                                  <li key={idx} style={{ fontSize: '14px', marginBottom: '4px', color: '#333' }}>{reason}</li>
+                                  <li key={idx} style={{ fontSize: '14px', marginBottom: '6px', color: '#49454F' }}>{reason}</li>
                                 ))}
                               </ul>
                             ) : (
-                              <div style={{ fontSize: '14px', color: '#333' }}>{item.reason}</div>
+                              <div style={{ fontSize: '14px', color: '#49454F', lineHeight: '1.6' }}>{item.reason}</div>
                             )}
                           </div>
                         )}
@@ -1085,7 +1537,15 @@ const FullFlowDebug: React.FC = () => {
                   </div>
                 </>
               ) : (
-                <div style={{ textAlign: 'center', padding: '40px 0', color: '#999', fontSize: '14px' }}>
+                <div style={{ 
+                  textAlign: 'center', 
+                  padding: '60px 20px', 
+                  color: '#49454F', 
+                  fontSize: '15px',
+                  backgroundColor: '#E7E0EC',
+                  borderRadius: '8px',
+                  margin: '20px'
+                }}>
                   暂无校验结果，请先上传文件并点击"开始校验"
                 </div>
               )}

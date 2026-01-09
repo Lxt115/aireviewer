@@ -197,44 +197,131 @@ const TemplateLibrary: React.FC = () => {
   ];
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <h2 className="page-title">版式库管理</h2>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => showModal()}>
+    <div style={{ 
+      minHeight: '100vh', 
+      backgroundColor: '#FFFFFF',
+      padding: '24px'
+    }}>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        marginBottom: '24px',
+        padding: '16px 0'
+      }}>
+
+        <Button 
+          type="primary" 
+          icon={<PlusOutlined />} 
+          onClick={() => showModal()}
+          style={{
+            backgroundColor: '#6750A4',
+            border: 'none',
+            borderRadius: '8px',
+            color: '#FFFFFF',
+            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+          }}
+          danger={false}
+        >
           新建版式模板
         </Button>
       </div>
       
-      <Table
-        columns={columns}
-        dataSource={templates}
-        rowKey="_id"
-        loading={loading}
-        pagination={{
-          pageSize: 10,
-        }}
-      />
+      <div style={{ 
+        backgroundColor: '#FFFFFF',
+        borderRadius: '12px',
+        padding: '16px',
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+        border: '1px solid #79747E'
+      }}>
+        <Table
+          columns={columns}
+          dataSource={templates}
+          rowKey="_id"
+          loading={loading}
+          pagination={{
+            pageSize: 10,
+            style: {
+              marginTop: '20px',
+              color: '#49454F'
+            }
+          }}
+          style={{
+            backgroundColor: '#FFFFFF'
+          }}
+          bordered={false}
+          components={{
+            header: {
+              cell: (props: any) => (
+                <th {...props} style={{
+                  backgroundColor: '#F3EDF7',
+                  color: '#1C1B1F',
+                  fontWeight: 600,
+                  borderBottom: '1px solid #79747E'
+                }} />
+              )
+            },
+            body: {
+              cell: (props: any) => (
+                <td {...props} style={{
+                  color: '#49454F',
+                  borderBottom: '1px solid #E7E0EC'
+                }} />
+              )
+            }
+          }}
+        />
+      </div>
       
       <Modal
-        title={editingTemplate ? '编辑版式模板' : '新建版式模板'}
+        title={<span style={{ color: '#1C1B1F', fontSize: '18px', fontWeight: 600 }}>{editingTemplate ? '编辑版式模板' : '新建版式模板'}</span>}
         open={modalVisible}
         onCancel={handleCancel}
         footer={null}
         width={800}
+        style={{
+          top: '10%'
+        }}
+        bodyStyle={{
+          backgroundColor: '#FFFBFE',
+          borderRadius: '12px',
+          padding: '16px 0'
+        }}
+        wrapClassName="custom-modal"
       >
         <Form
           form={form}
           layout="vertical"
+          style={{
+            backgroundColor: '#FFFBFE',
+            padding: '0 16px'
+          }}
         >
           <Form.Item
             name="name"
-            label="模板名称"
+            label={<span style={{ color: '#1C1B1F', fontWeight: 500 }}>模板名称</span>}
             rules={[{ required: true, message: '请输入模板名称' }]}
+            style={{
+              marginBottom: '24px'
+            }}
           >
-            <Input placeholder="请输入模板名称" />
+            <Input 
+              placeholder="请输入模板名称" 
+              style={{
+                backgroundColor: '#E7E0EC',
+                border: '1px solid #79747E',
+                borderRadius: '8px',
+                color: '#1C1B1F'
+              }}
+            />
           </Form.Item>
           
-          <Form.Item label="变量配置">
+          <Form.Item 
+            label={<span style={{ color: '#1C1B1F', fontWeight: 500 }}>变量配置</span>}
+            style={{
+              marginBottom: '24px'
+            }}
+          >
             <div>
               {variables.map((variable, index) => (
                 <div key={index} style={{ display: 'flex', gap: 16, marginBottom: 16, alignItems: 'flex-start' }}>
@@ -247,7 +334,13 @@ const TemplateLibrary: React.FC = () => {
                       placeholder="变量名称"
                       value={variable.name}
                       onChange={(e) => updateVariable(index, 'name', e.target.value)}
-                      style={{ width: 150 }}
+                      style={{ 
+                        width: 150,
+                        backgroundColor: '#E7E0EC',
+                        border: '1px solid #79747E',
+                        borderRadius: '8px',
+                        color: '#1C1B1F'
+                      }}
                     />
                   </Form.Item>
                   
@@ -258,7 +351,14 @@ const TemplateLibrary: React.FC = () => {
                     <select
                       value={variable.type}
                       onChange={(e) => updateVariable(index, 'type', e.target.value)}
-                      style={{ width: 120, padding: '4px 8px', borderRadius: 4, border: '1px solid #d9d9d9' }}
+                      style={{ 
+                        width: 120, 
+                        padding: '8px 12px', 
+                        borderRadius: 8, 
+                        border: '1px solid #79747E',
+                        backgroundColor: '#E7E0EC',
+                        color: '#1C1B1F'
+                      }}
                     >
                       <option value="string">字符串</option>
                       <option value="number">数字</option>
@@ -275,7 +375,13 @@ const TemplateLibrary: React.FC = () => {
                       placeholder="格式（可选）"
                       value={variable.format || ''}
                       onChange={(e) => updateVariable(index, 'format', e.target.value)}
-                      style={{ width: 200 }}
+                      style={{ 
+                        width: 200,
+                        backgroundColor: '#E7E0EC',
+                        border: '1px solid #79747E',
+                        borderRadius: '8px',
+                        color: '#1C1B1F'
+                      }}
                     />
                   </Form.Item>
                   
@@ -283,24 +389,57 @@ const TemplateLibrary: React.FC = () => {
                     type="text"
                     danger
                     onClick={() => removeVariable(index)}
-                    style={{ marginTop: 4 }}
+                    style={{ 
+                      marginTop: 4,
+                      color: '#7D5260'
+                    }}
                   >
                     删除
                   </Button>
                 </div>
               ))}
               
-              <Button type="dashed" onClick={addVariable} style={{ width: '100%', marginTop: 8 }}>
+              <Button 
+                type="dashed" 
+                icon={<PlusOutlined />} 
+                onClick={addVariable} 
+                style={{ 
+                  width: '100%', 
+                  marginTop: 8,
+                  backgroundColor: '#F3EDF7',
+                  border: '1px dashed #79747E',
+                  color: '#6750A4',
+                  borderRadius: '8px'
+                }}
+              >
                 添加变量
               </Button>
             </div>
           </Form.Item>
           
-          <Form.Item style={{ textAlign: 'right' }}>
-            <Button onClick={handleCancel} style={{ marginRight: 8 }}>
+          <Form.Item style={{ textAlign: 'right', marginBottom: 0 }}>
+            <Button 
+              onClick={handleCancel} 
+              style={{ 
+                marginRight: '12px',
+                backgroundColor: '#F3EDF7',
+                border: '1px solid #79747E',
+                color: '#1C1B1F',
+                borderRadius: '8px'
+              }}
+            >
               取消
             </Button>
-            <Button type="primary" onClick={handleSubmit}>
+            <Button 
+              type="primary" 
+              onClick={handleSubmit}
+              style={{
+                backgroundColor: '#6750A4',
+                border: 'none',
+                borderRadius: '8px',
+                color: '#FFFFFF'
+              }}
+            >
               确定
             </Button>
           </Form.Item>

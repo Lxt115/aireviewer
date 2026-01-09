@@ -4,7 +4,10 @@ from app.models import (
     Rule,
     RuleCreate,
     RuleUpdate,
-    ValidateRequest
+    ValidateRequest,
+    PromptOptimizeRequest,
+    PromptOptimizeResponse,
+    ExecutionLogicSaveRequest
 )
 from app.services.ai_service import ai_service
 from app.db.sqlite import query, insert, update, delete
@@ -260,29 +263,76 @@ async def delete_rule(rule_id: str):
             detail=f"Internal server error: {str(e)}"
         )
 
-@router.post("/optimize")
-async def optimize_rule_description(description: dict):
+@router.post("/optimize", response_model=PromptOptimizeResponse)
+async def optimize_rule_description(request: PromptOptimizeRequest):
     """AI优化规则描述"""
     try:
-        original_description = description.get("description", "")
-        if not original_description:
+        if not request.description:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Description is required"
             )
         
         # 调用AI服务优化规则描述
-        optimized_prompt = await ai_service.optimize_prompt(original_description)
+        optimized_prompt = await ai_service.optimize_prompt(request.description)
         
-        return {
-            "original_description": original_description,
-            "optimized_prompt": optimized_prompt
-        }
+        return PromptOptimizeResponse(
+            original_description=request.description,
+            optimized_prompt=optimized_prompt
+        )
     except HTTPException:
         raise
     except Exception as e:
         import traceback
         print(f"Error in optimize_rule_description: {e}")
+        print(traceback.format_exc())
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {str(e)}"
+        )
+
+@router.post("/save-execution-logic")
+async def save_execution_logic(request: ExecutionLogicSaveRequest):
+    """保存执行逻辑"""
+    try:
+        if not request.rule_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Rule ID is required"
+            )
+        
+        if not request.description:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Description is required"
+            )
+        
+        # 检查规则是否存在
+        results = await query("SELECT * FROM rules WHERE _id = ?", (request.rule_id,))
+        if not results:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Rule not found"
+            )
+        
+        # 更新规则描述
+        await update(
+            "rules",
+            {"description": request.description, "updated_at": datetime.utcnow().isoformat()},
+            "_id = ?",
+            (request.rule_id,)
+        )
+        
+        return {
+            "message": "Execution logic saved successfully",
+            "rule_id": request.rule_id,
+            "saved_description": request.description
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        print(f"Error in save_execution_logic: {e}")
         print(traceback.format_exc())
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -347,19 +397,36 @@ async def optimize_rule(rule_id: str):
 async def validate_rule(rule_id: str, example_content: dict):
     """规则校验"""
     try:
-        rule = rules_db.get(rule_id)
-        if rule is None:
+        # 从数据库获取规则
+        results = await query("SELECT * FROM rules WHERE _id = ?", (rule_id,))
+        if not results:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Rule not found"
             )
         
-        # 这里简化处理，返回模拟数据
+        result = results[0]
+        rule = {
+            "_id": result[0],
+            "name": result[1],
+            "scene_id": result[2],
+            "description": result[3],
+            "created_at": result[4],
+            "updated_at": result[5]
+        }
+        
+        # 获取关联的审核项
+        audit_items_results = await query("SELECT * FROM audit_items WHERE rule_id = ?", (rule_id,))
+        audit_items = [{"_id": item[0], "name": item[1], "rule_id": item[2], "type": item[3], "criteria": item[4], "created_at": item[5], "updated_at": item[6]} for item in audit_items_results]
+        
+        # 调用AI服务进行规则校验
+        validation_results = await ai_service.validate_rule(rule, example_content, audit_items)
+        
         return {
             "rule_id": rule_id,
             "example_content": example_content,
-            "audit_items": [],
-            "validation_results": []
+            "audit_items": audit_items,
+            "validation_results": validation_results.get("validation_results", [])
         }
     except HTTPException:
         raise

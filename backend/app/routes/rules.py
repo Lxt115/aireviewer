@@ -339,59 +339,7 @@ async def save_execution_logic(request: ExecutionLogicSaveRequest):
             detail=f"Internal server error: {str(e)}"
         )
 
-@router.post("/{rule_id}/optimize")
-async def optimize_rule(rule_id: str):
-    """AI优化规则"""
-    try:
-        # 从数据库获取规则
-        results = await query("SELECT * FROM rules WHERE _id = ?", (rule_id,))
-        if not results:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Rule not found"
-            )
-        
-        result = results[0]
-        rule = {
-            "_id": result[0],
-            "name": result[1],
-            "scene_id": result[2],
-            "description": result[3],
-            "created_at": result[4],
-            "updated_at": result[5]
-        }
-        
-        # 获取关联的审核项
-        audit_items_results = await query("SELECT * FROM audit_items WHERE rule_id = ?", (rule_id,))
-        audit_items = [{
-            "_id": item[0],
-            "name": item[1],
-            "rule_id": item[2],
-            "type": item[3],
-            "criteria": item[4],
-            "created_at": item[5],
-            "updated_at": item[6]
-        } for item in audit_items_results]
-        
-        # 调用AI服务优化规则
-        optimized_result = await ai_service.optimize_rule(rule, audit_items)
-        
-        return {
-            "rule_id": rule_id,
-            "original_rule": rule,
-            "audit_items": audit_items,
-            "optimized_suggestion": optimized_result
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        import traceback
-        print(f"Error in optimize_rule: {e}")
-        print(traceback.format_exc())
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Internal server error: {str(e)}"
-        )
+
 
 @router.post("/{rule_id}/validate")
 async def validate_rule(rule_id: str, example_content: dict):

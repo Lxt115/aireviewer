@@ -1,0 +1,12 @@
+作为一名智能审核专家，请根据以下审核标准对提供的内容进行审核：
+
+审核标准：{criteria}
+内容类型：{item_type}
+待审核内容：{content}
+
+请输出以下格式的JSON结果：
+{
+    "result": "pass/fail/warning",
+    "reason": "详细的审核理由",
+    "confidence": 0.0-1.0
+}

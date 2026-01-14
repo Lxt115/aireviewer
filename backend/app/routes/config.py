@@ -8,7 +8,8 @@ from app.services.ai_service import ai_service
 router = APIRouter()
 
 # API配置存储路径
-API_CONFIG_FILE = "./ai_api_config.json"
+import os
+API_CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../ai_api_config.json")
 
 # 获取AI配置
 @router.get("/api/config/ai")
@@ -44,7 +45,9 @@ async def save_ai_config(config: Dict):
         with open(API_CONFIG_FILE, "w") as f:
             json.dump(config, f, indent=2)
         
-        # 这里可以添加更多逻辑，比如重启AI服务等
+        # 重新加载配置并初始化AI客户端
+        ai_service.load_config()
+        ai_service.init_client()
         
         return {"message": "AI配置保存成功"}
     except Exception as e:
@@ -54,27 +57,4 @@ async def save_ai_config(config: Dict):
             detail="保存AI配置失败"
         )
 
-# AI对话API
-@router.post("/api/config/ai/chat")
-async def ai_chat(request: Dict):
-    """AI对话接口，用于调试提示词"""
-    try:
-        message = request.get("message", "")
-        if not message:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Message is required"
-            )
-        
-        # 调用AI服务获取响应
-        response = await ai_service.chat(message)
-        
-        return {"response": response}
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"Error in ai_chat: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Internal server error: {str(e)}"
-        )
+

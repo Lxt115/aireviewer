@@ -59,7 +59,9 @@ class AIService:
         self.load_config()
         
     def load_config(self):
-        API_CONFIG_FILE = "./ai_api_config.json"
+        import os
+        # 使用绝对路径，确保在任何工作目录下都能找到配置文件
+        API_CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../ai_api_config.json")
         try:
             if os.path.exists(API_CONFIG_FILE):
                 with open(API_CONFIG_FILE, "r") as f:
@@ -80,34 +82,30 @@ class AIService:
             self.base_url = settings.DASHSCOPE_BASE_URL or ""
             self.model = settings.OPENAI_MODEL or settings.DASHSCOPE_MODEL or ""
     
-    async def generate_audit_result(self, content: str, criteria: str, item_type: str) -> dict:
+    async def _call_ai(self, prompt_name: str, system_role: str, prompt_params: dict, error_message: str, default_result: dict) -> dict:
+        """
+        核心AI调用函数，封装共同的AI调用逻辑
+        :param prompt_name: 提示词名称
+        :param system_role: 系统角色
+        :param prompt_params: 提示词格式化参数
+        :param error_message: 错误消息前缀
+        :param default_result: 默认结果
+        :return: AI响应结果
+        """
         if not self.client:
-            return {
-                "result": "pass",
-                "reason": "模拟审核：内容符合审核标准",
-                "confidence": 0.8
-            }
+            raise Exception("请配置AI API密钥以使用AI功能")
             
         try:
-            prompt = f"""
-            作为一名智能审核专家，请根据以下审核标准对提供的内容进行审核：
+            # 加载提示词
+            prompt_template = self.load_prompt(prompt_name)
             
-            审核标准：{criteria}
-            内容类型：{item_type}
-            待审核内容：{content}
-            
-            请输出以下格式的JSON结果：
-            {
-                "result": "pass/fail/warning",
-                "reason": "详细的审核理由",
-                "confidence": 0.0-1.0
-            }
-            """
+            # 格式化提示词
+            prompt = prompt_template.format(**prompt_params)
             
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": "你是一名专业的智能审核专家，能够根据给定的标准对各种内容进行准确审核。"},
+                    {"role": "system", "content": system_role},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.3,
@@ -118,91 +116,32 @@ class AIService:
             import json
             return json.loads(result)
         except Exception as e:
-            print(f"Error generating audit result: {e}")
-            # 返回默认结果
-            return {
+            print(f"{error_message}: {e}")
+            return default_result
+    
+    async def generate_audit_result(self, content: str, criteria: str, item_type: str) -> dict:
+        """
+        生成审核结果
+        :param content: 待审核内容
+        :param criteria: 审核标准
+        :param item_type: 审核项类型
+        :return: 审核结果
+        """
+        return await self._call_ai(
+            prompt_name='audit_result',
+            system_role="你是一名专业的智能审核专家，能够根据给定的标准对各种内容进行准确审核。",
+            prompt_params={
+                'criteria': criteria,
+                'item_type': item_type,
+                'content': content
+            },
+            error_message="Error generating audit result",
+            default_result={
                 "result": "warning",
                 "reason": "AI审核失败，建议人工复核",
                 "confidence": 0.5
             }
-    
-    async def optimize_rule(self, rule: dict, audit_items: list) -> dict:
-        """
-        优化规则
-        :param rule: 原始规则
-        :param audit_items: 审核项列表
-        :return: 优化建议
-        """
-        # 如果客户端未初始化（API密钥未设置），返回模拟结果
-        if not self.client:
-            return {
-                "optimized_rule_name": rule['name'],
-                "optimized_description": rule.get('description', '') + "（模拟优化）",
-                "audit_items_suggestions": [
-                    {
-                        "original_item": item['name'],
-                        "suggestion": f"模拟优化建议：完善{item['name']}的审核标准"
-                    } for item in audit_items[:2]
-                ],
-                "general_suggestions": ["模拟优化：建议增加更多审核场景示例", "模拟优化：建议调整审核标准的阈值"]
-            }
-            
-        try:
-            # 构建审核项描述
-            items_desc = "\n".join([f"- {item['name']}（类型：{item['type']}）：{item['criteria']}" for item in audit_items])
-            
-            prompt = f"""
-            作为一名智能审核规则专家，请根据以下原始规则和审核项，生成优化建议：
-            
-            原始规则：
-            名称：{rule['name']}
-            描述：{rule.get('description', '无')}
-            
-            审核项：
-            {items_desc}
-            
-            请从以下几个方面给出优化建议：
-            1. 规则的完整性和准确性
-            2. 审核项的描述清晰度
-            3. 审核标准的可操作性
-            4. 可能的漏洞和改进点
-            
-            输出格式：
-            {
-                "optimized_rule_name": "优化后的规则名称",
-                "optimized_description": "优化后的规则描述",
-                "audit_items_suggestions": [
-                    {
-                        "original_item": "原始审核项名称",
-                        "suggestion": "具体优化建议"
-                    }
-                ],
-                "general_suggestions": ["总体优化建议1", "总体优化建议2"]
-            }
-            """
-            
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": "你是一名专业的智能审核规则专家，能够根据给定的规则和审核项，提供准确的优化建议。"},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.3,
-                response_format={"type": "json_object"}
-            )
-            
-            result = response.choices[0].message.content
-            import json
-            return json.loads(result)
-        except Exception as e:
-            print(f"Error optimizing rule: {e}")
-            # 返回默认建议
-            return {
-                "optimized_rule_name": rule['name'],
-                "optimized_description": rule.get('description', ''),
-                "audit_items_suggestions": [],
-                "general_suggestions": ["AI优化失败，建议人工优化"]
-            }
+        )
     
     async def validate_rule(self, rule: dict, example_content: dict, audit_items: list) -> dict:
         """
@@ -212,66 +151,20 @@ class AIService:
         :param audit_items: 审核项列表
         :return: 校验结果
         """
-        # 如果客户端未初始化（API密钥未设置），返回模拟结果
-        if not self.client:
-            return {
-                "validation_results": [
-                    {
-                        "audit_item_name": item['name'],
-                        "result": "pass",
-                        "reason": f"模拟校验：{item['name']}符合审核标准",
-                        "suggestion": "模拟建议：无需修改"
-                    } for item in audit_items
-                ]
-            }
-            
-        try:
-            # 构建审核项描述
-            items_desc = "\n".join([f"- {item['name']}（类型：{item['type']}）：{item['criteria']}" for item in audit_items])
-            
-            prompt = f"""
-            作为一名智能审核规则校验专家，请根据以下规则和审核项，对提供的示例内容进行校验：
-            
-            规则：
-            名称：{rule['name']}
-            描述：{rule.get('description', '无')}
-            
-            审核项：
-            {items_desc}
-            
-            示例内容：
-            {example_content}
-            
-            请为每个审核项输出校验结果，格式如下：
-            {
-                "validation_results": [
-                    {
-                        "audit_item_name": "审核项名称",
-                        "result": "pass/fail/warning",
-                        "reason": "详细的校验理由",
-                        "suggestion": "改进建议（如果有）"
-                    }
-                ]
-            }
-            """
-            
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": "你是一名专业的智能审核规则校验专家，能够根据给定的规则和审核项，对示例内容进行准确校验。"},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.3,
-                response_format={"type": "json_object"}
-            )
-            
-            result = response.choices[0].message.content
-            import json
-            return json.loads(result)
-        except Exception as e:
-            print(f"Error validating rule: {e}")
-            # 返回默认校验结果
-            return {
+        # 构建审核项描述
+        items_desc = "\n".join([f"- {item['name']}（类型：{item['type']}）：{item['criteria']}" for item in audit_items])
+        
+        return await self._call_ai(
+            prompt_name='rule_validation',
+            system_role="你是一名专业的智能审核规则校验专家，能够根据给定的规则和审核项，对示例内容进行准确校验。",
+            prompt_params={
+                'rule_name': rule['name'],
+                'rule_description': rule.get('description', '无'),
+                'audit_items': items_desc,
+                'example_content': example_content
+            },
+            error_message="Error validating rule",
+            default_result={
                 "validation_results": [
                     {
                         "audit_item_name": item['name'],
@@ -281,38 +174,7 @@ class AIService:
                     for item in audit_items
                 ]
             }
-    
-    async def chat(self, message: str) -> str:
-        """
-        处理对话请求
-        :param message: 用户输入的消息
-        :return: AI响应
-        """
-        # 如果客户端未初始化（API密钥未设置），返回模拟响应
-        if not self.client:
-            return "模拟响应：这是一个模拟的AI响应。您的输入是：" + message
-            
-        try:
-            prompt = f"""
-            作为一名智能审核专家，请回答以下问题：
-            {message}
-            """
-            
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": "你是一名专业的智能审核专家，能够回答关于审核规则、提示词优化等方面的问题。"},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.5
-            )
-            
-            result = response.choices[0].message.content
-            return result
-        except Exception as e:
-            print(f"Error in chat: {e}")
-            # 返回错误响应
-            return "抱歉，处理您的请求时发生错误，请稍后重试。"
+        )
     
     def load_prompt(self, prompt_name: str) -> str:
         """
@@ -335,9 +197,8 @@ class AIService:
         :param original_prompt: 原始规则描述
         :return: 优化后的AI提示词
         """
-        # 如果客户端未初始化（API密钥未设置），返回模拟优化结果
         if not self.client:
-            return f"{original_prompt}（模拟优化：建议增加更详细的审核标准和示例）"
+            raise Exception("请配置AI API密钥以使用优化功能")
             
         try:
             # 加载执行逻辑优化提示词

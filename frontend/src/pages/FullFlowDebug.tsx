@@ -46,6 +46,7 @@ interface UploadFile {
 }
 
 const FullFlowDebug: React.FC = () => {
+  
   // 状态管理
   const [scenes, setScenes] = useState<BusinessScene[]>([]);
   const [rules, setRules] = useState<Rule[]>([]);
@@ -58,12 +59,14 @@ const FullFlowDebug: React.FC = () => {
   // 模态框状态
   const [sceneModalVisible, setSceneModalVisible] = useState(false);
   const [ruleModalVisible, setRuleModalVisible] = useState(false);
-  const [itemModalVisible, setItemModalVisible] = useState(false);
+  // 移除未使用的审核项模态框状态
+  // const [itemModalVisible, setItemModalVisible] = useState(false);
   
   // 编辑状态
   const [editingScene, setEditingScene] = useState<BusinessScene | null>(null);
   const [editingRule, setEditingRule] = useState<Rule | null>(null);
-  const [editingItem, setEditingItem] = useState<AuditItem | null>(null);
+  // 移除未使用的审核项编辑状态
+  // const [editingItem, setEditingItem] = useState<AuditItem | null>(null);
   
   // 业务场景表单状态
   const [sceneName, setSceneName] = useState('');
@@ -76,11 +79,8 @@ const FullFlowDebug: React.FC = () => {
   const [showNewRuleInput, setShowNewRuleInput] = useState(false);
   const [newRuleName, setNewRuleName] = useState('');
   
-  // 审核项表单状态
-  const [itemName, setItemName] = useState('');
-  const [itemRuleId, setItemRuleId] = useState('');
-  const [itemType, setItemType] = useState('text');
-  const [itemCriteria, setItemCriteria] = useState('');
+  // 审核项表单状态已移除，因为未使用
+  // 如需恢复，可参考之前的代码版本
   
   // 文件上传状态
   const [uploadedFiles, setUploadedFiles] = useState<UploadFile[]>([]);
@@ -99,10 +99,109 @@ const FullFlowDebug: React.FC = () => {
   const [showValidationResults, setShowValidationResults] = useState(false);
   // 保存状态
   const [saving, setSaving] = useState(false);
+  // 自动识别的文档
+  const [identifiedDocuments, setIdentifiedDocuments] = useState<string[]>([]);
+  // 文档分类结果
+  const [classifiedDocuments, setClassifiedDocuments] = useState<{
+    auditDocuments: string[];
+    referenceDocuments: string[];
+  }>({ auditDocuments: [], referenceDocuments: [] });
+  
+  // 面板状态
+  const [leftPanelWidth, setLeftPanelWidth] = useState<number>(0.25); // 初始宽度占比
+  const leftPanelRef = React.useRef<HTMLDivElement>(null);
+  const containerRef = React.useRef<HTMLDivElement>(null);
   // 监听校验结果变化，控制面板显示
   useEffect(() => {
     setShowValidationResults(validationResults.length > 0);
   }, [validationResults]);
+
+  // 正则表达式转义函数，防止特殊字符导致正则崩溃
+  const escapeRegExp = (string: string) => {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  };
+
+  // 识别执行逻辑中的文档并分类
+  const processDocuments = (text: string) => {
+    try {
+      // 识别文档
+      const docRegex = /《([^》]+)》/g;
+      const matches = [];
+      let match;
+      while ((match = docRegex.exec(text)) !== null) {
+        matches.push(match[1]);
+      }
+      
+      // 分类文档
+      const auditDocuments: string[] = [];
+      const referenceDocuments: string[] = [];
+      
+      // 常见参考文档关键词
+      const referenceKeywords = ['台账', '规范', '标准', '要求', '指南', '模板', '手册', '目录', '清单', '说明'];
+      
+      // 常见待审核文档关键词
+      const auditKeywords = ['报告', '方案', '总结', '计划', '材料', '文档', '文件', '表单', '记录', '申请'];
+      
+      matches.forEach(doc => {
+        const lowerDoc = doc.toLowerCase();
+        const lowerText = text.toLowerCase();
+        
+        // 检查文档在文本中的上下文 - 转义特殊字符
+        const escapedDoc = escapeRegExp(doc);
+        const contextRegex = new RegExp(`[^一-龥]*${escapedDoc}[^一-龥]*(?:结合|参考|依据|对照|根据|按照)[^一-龥]*《([^》]+)》`, 'i');
+        const contextMatch = text.match(contextRegex);
+        
+        if (contextMatch) {
+          // 如果文档被提及为参考，则分类为参考文档
+          referenceDocuments.push(doc);
+        } else {
+          // 基于关键词分类
+          let isReference = false;
+          let isAudit = false;
+          
+          for (const keyword of referenceKeywords) {
+            if (lowerDoc.includes(keyword)) {
+              isReference = true;
+              break;
+            }
+          }
+          
+          for (const keyword of auditKeywords) {
+            if (lowerDoc.includes(keyword)) {
+              isAudit = true;
+              break;
+            }
+          }
+          
+          if (isReference) {
+            referenceDocuments.push(doc);
+          } else if (isAudit || lowerText.includes('检查' + doc) || lowerText.includes('审核' + doc)) {
+            auditDocuments.push(doc);
+          } else {
+            // 默认分类为待审核文档
+            auditDocuments.push(doc);
+          }
+        }
+      });
+      
+      // 更新状态
+      setIdentifiedDocuments(matches);
+      setClassifiedDocuments({
+        auditDocuments,
+        referenceDocuments
+      });
+    } catch (error) {
+      console.error('Error in processDocuments:', error);
+      // 防止崩溃导致页面空白，重置状态
+      setIdentifiedDocuments([]);
+      setClassifiedDocuments({ auditDocuments: [], referenceDocuments: [] });
+    }
+  };
+
+  // 监听执行逻辑变化，自动识别和分类文档
+  useEffect(() => {
+    processDocuments(debugRuleDescription);
+  }, [debugRuleDescription]);
 
   // 获取业务场景列表
   const fetchScenes = async () => {
@@ -123,7 +222,7 @@ const FullFlowDebug: React.FC = () => {
       const response = await axios.get('http://localhost:8000/api/rules');
       setRules(response.data);
     } catch (error) {
-      message.error('获取规则失败');
+      messageApi.error('获取规则失败');
       console.error('Error fetching rules:', error);
     }
   };
@@ -185,33 +284,32 @@ const FullFlowDebug: React.FC = () => {
     }
   };
   
-  const handleSceneDelete = async (sceneId: string) => {
+  const handleSceneDelete = (sceneId: string) => {
     console.log('handleSceneDelete invoked, sceneId=', sceneId);
 
-    // Try to show Antd confirm; if for some reason it doesn't render, fallback to window.confirm
-    try {
-      Modal.confirm({
-        title: '确认删除',
-        content: '确定要删除这个业务场景吗？删除后，该场景下的所有规则也将被删除！',
-        okText: '确定',
-        okType: 'danger',
-        cancelText: '取消',
-        onOk: async () => {
-          try {
-            console.log('sending DELETE /api/scenes/', sceneId);
-            await axios.delete(`http://localhost:8000/api/scenes/${sceneId}`);
+    // 使用Modal.confirm静态方法
+    Modal.confirm({
+      title: '确认删除',
+      content: '确定要删除这个业务场景吗？删除后，该场景下的所有规则也将被删除！',
+      okText: '确定',
+      okType: 'danger',
+      cancelText: '取消',
+      onOk: () => {
+        // 执行删除操作
+        return axios.delete(`http://localhost:8000/api/scenes/${sceneId}`)
+          .then(() => {
             message.success('删除业务场景成功');
-            // 如果删除的是当前选中的场景，清除选中状态，避免界面仍显示已删除的内容
+            // 如果删除的是当前选中的场景，清除选中状态
             if (selectedScene === sceneId) {
               setSelectedScene('');
               setSelectedRule('');
             }
-
             // 刷新数据
-            await fetchScenes();
-            await fetchRules();
-            await fetchAuditItems();
-          } catch (error) {
+            fetchScenes();
+            fetchRules();
+            fetchAuditItems();
+          })
+          .catch(error => {
             console.error('Error deleting scene:', error);
             const e: any = error;
             if (e?.response) {
@@ -221,69 +319,14 @@ const FullFlowDebug: React.FC = () => {
             } else {
               message.error('删除业务场景失败');
             }
-          }
-        },
-      });
-
-      // short timeout to detect if Antd modal actually rendered; if not, fallback to window.confirm
-      setTimeout(async () => {
-        const hasModal = document.querySelector('.ant-modal-root') || document.querySelector('.ant-modal-mask') || document.querySelector('.ant-modal');
-        if (!hasModal) {
-          console.warn('Antd Modal.confirm did not render, falling back to window.confirm');
-          const ok = window.confirm('确定要删除这个业务场景吗？删除后，该场景下的所有规则也将被删除！');
-          if (ok) {
-            try {
-              console.log('fallback: sending DELETE /api/scenes/', sceneId);
-              await axios.delete(`http://localhost:8000/api/scenes/${sceneId}`);
-              message.success('删除业务场景成功');
-              if (selectedScene === sceneId) {
-                setSelectedScene('');
-                setSelectedRule('');
-              }
-              await fetchScenes();
-              await fetchRules();
-              await fetchAuditItems();
-            } catch (error) {
-              console.error('Error deleting scene (fallback):', error);
-              const e: any = error;
-              if (e?.response) {
-                message.error(`删除业务场景失败: ${e.response.status} ${JSON.stringify(e.response.data)}`);
-              } else if (e?.message) {
-                message.error(`删除业务场景失败: ${e.message}`);
-              } else {
-                message.error('删除业务场景失败');
-              }
-            }
-          }
-        }
-      }, 200);
-    } catch (err) {
-      console.error('Modal.confirm threw error, fallback to window.confirm', err);
-      const ok = window.confirm('确定要删除这个业务场景吗？删除后，该场景下的所有规则也将被删除！');
-      if (ok) {
-        try {
-          await axios.delete(`http://localhost:8000/api/scenes/${sceneId}`);
-          message.success('删除业务场景成功');
-          if (selectedScene === sceneId) {
-            setSelectedScene('');
-            setSelectedRule('');
-          }
-          await fetchScenes();
-          await fetchRules();
-          await fetchAuditItems();
-        } catch (error) {
-          console.error('Error deleting scene (fallback after exception):', error);
-          const e: any = error;
-          if (e?.response) {
-            message.error(`删除业务场景失败: ${e.response.status} ${JSON.stringify(e.response.data)}`);
-          } else if (e?.message) {
-            message.error(`删除业务场景失败: ${e.message}`);
-          } else {
-            message.error('删除业务场景失败');
-          }
-        }
+            // 返回rejected promise，让Modal知道操作失败
+            return Promise.reject(error);
+          });
+      },
+      onCancel: () => {
+        console.log('Delete cancelled');
       }
-    }
+    });
   };
   
   // 规则操作
@@ -347,86 +390,51 @@ const FullFlowDebug: React.FC = () => {
     }
   };
   
-  const handleRuleDelete = async (ruleId: string) => {
+  const handleRuleDelete = (ruleId: string) => {
     console.log('handleRuleDelete invoked, ruleId=', ruleId);
+
+    // 使用Modal.confirm静态方法
     Modal.confirm({
       title: '确认删除',
       content: '确定要删除这个规则吗？同时会删除关联的审核项。',
       okText: '确定',
       okType: 'danger',
       cancelText: '取消',
-      onOk: async () => {
-        try {
-          console.log('sending DELETE /api/rules/', ruleId);
-          await axios.delete(`http://localhost:8000/api/rules/${ruleId}`);
-          message.success('删除规则成功');
-          // 如果删除的是当前选中的规则，清除选中状态
-          if (selectedRule === ruleId) {
-            setSelectedRule('');
-          }
-
-          // 刷新数据
-          await fetchRules();
-          await fetchAuditItems();
-        } catch (error) {
-          console.error('Error deleting rule:', error);
-          const e: any = error;
-          if (e?.response) {
-            message.error(`删除规则失败: ${e.response.status} ${JSON.stringify(e.response.data)}`);
-          } else if (e?.message) {
-            message.error(`删除规则失败: ${e.message}`);
-          } else {
-            message.error('删除规则失败');
-          }
-        }
+      onOk: () => {
+        // 执行删除操作
+        return axios.delete(`http://localhost:8000/api/rules/${ruleId}`)
+          .then(() => {
+            message.success('删除规则成功');
+            // 如果删除的是当前选中的规则，清除选中状态
+            if (selectedRule === ruleId) {
+              setSelectedRule('');
+            }
+            // 刷新数据
+            fetchRules();
+            fetchAuditItems();
+          })
+          .catch(error => {
+            console.error('Error deleting rule:', error);
+            const e: any = error;
+            if (e?.response) {
+              message.error(`删除规则失败: ${e.response.status} ${JSON.stringify(e.response.data)}`);
+            } else if (e?.message) {
+              message.error(`删除规则失败: ${e.message}`);
+            } else {
+              message.error('删除规则失败');
+            }
+            // 返回rejected promise，让Modal知道操作失败
+            return Promise.reject(error);
+          });
       },
+      onCancel: () => {
+        console.log('Rule delete cancelled');
+      }
     });
   };
   
-  // 审核项操作
-  const showItemModal = (item?: AuditItem) => {
-    if (item) {
-      setEditingItem(item);
-      setItemName(item.name);
-      setItemRuleId(item.rule_id);
-      setItemType(item.type);
-      setItemCriteria(item.criteria);
-    } else {
-      setEditingItem(null);
-      setItemName('');
-      setItemRuleId(selectedRule || '');
-      setItemType('text');
-      setItemCriteria('');
-    }
-    setItemModalVisible(true);
-  };
-  
-  const handleItemCancel = () => {
-    setItemModalVisible(false);
-    setEditingItem(null);
-    setItemName('');
-    setItemRuleId(selectedRule || '');
-    setItemType('text');
-    setItemCriteria('');
-  };
-  
-  const handleItemSubmit = async (values: any) => {
-    try {
-      if (editingItem) {
-        await axios.put(`http://localhost:8000/api/audit-items/${editingItem._id}/`, values);
-        message.success('更新审核项成功');
-      } else {
-        await axios.post('http://localhost:8000/api/audit-items/', values);
-        message.success('新增审核项成功');
-      }
-      
-      handleItemCancel();
-      fetchAuditItems();
-    } catch (error) {
-      message.error('操作失败');
-      console.error('Error submitting audit item:', error);
-    }
-  };
+  // 审核项操作相关函数已移除，因为未使用
+  // 如需恢复，可参考之前的代码版本
   
   // 文件上传函数
   const uploadFile = async (file: File, fileList: UploadFile[], setFileList: React.Dispatch<React.SetStateAction<UploadFile[]>>) => {
@@ -509,9 +517,41 @@ const FullFlowDebug: React.FC = () => {
       // 处理校验结果
       setValidationResults(response.data.results || []);
       message.success('规则校验完成');
-    } catch (error) {
-      message.error('规则校验失败');
+    } catch (error: any) {
       console.error('Error running validation:', error);
+      let errorMessage = '规则校验失败';
+      
+      // 检查是否是API配置错误
+      if (error.response) {
+        // 服务器返回了错误响应
+        if (error.response.data?.detail?.includes('请配置AI API密钥')) {
+          errorMessage = error.response.data.detail;
+          // 使用Modal.confirm静态方法
+          Modal.confirm({
+            title: 'API配置提示',
+            content: (
+              <div>
+                <p>{errorMessage}</p>
+                <p>请点击页面右上角的「配置大模型API」按钮进行配置。</p>
+              </div>
+            ),
+            okText: '知道了',
+            cancelText: '取消',
+            onOk: () => {
+              console.log('用户需要配置API密钥');
+            }
+          });
+          // 只显示模态对话框，不显示额外的错误消息
+          return;
+        } else if (error.response.data?.detail) {
+          errorMessage = error.response.data.detail;
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      message.error(errorMessage);
+      setValidationResults([]);
     } finally {
       setValidating(false);
     }
@@ -536,9 +576,40 @@ const FullFlowDebug: React.FC = () => {
       setOptimizedPrompt(optimized);
       
       message.success('规则描述优化完成');
-    } catch (error) {
-      message.error('规则描述优化失败');
+    } catch (error: any) {
       console.error('Error optimizing rule:', error);
+      let errorMessage = '规则描述优化失败';
+      
+      // 检查是否是API配置错误
+      if (error.response) {
+        // 服务器返回了错误响应
+        if (error.response.data?.detail?.includes('请配置AI API密钥')) {
+          errorMessage = error.response.data.detail;
+          // 使用Modal.confirm静态方法
+          Modal.confirm({
+            title: 'API配置提示',
+            content: (
+              <div>
+                <p>{errorMessage}</p>
+                <p>请点击页面右上角的「配置大模型API」按钮进行配置。</p>
+              </div>
+            ),
+            okText: '知道了',
+            cancelText: '取消',
+            onOk: () => {
+              console.log('用户需要配置API密钥');
+            }
+          });
+          // 只显示模态对话框，不显示额外的错误消息
+          return;
+        } else if (error.response.data?.detail) {
+          errorMessage = error.response.data.detail;
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      message.error(errorMessage);
     } finally {
       setOptimizing(false);
     }
@@ -586,44 +657,47 @@ const FullFlowDebug: React.FC = () => {
     <div className="full-flow-debug" style={{ height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: '16px' }}>
 
       
-      <div style={{ display: 'flex', flex: 1, gap: '16px', overflow: 'hidden' }}>
+      <div ref={containerRef} style={{ display: 'flex', flex: 1, gap: '0px', overflow: 'hidden' }}>
         {/* 左侧：业务场景与规则 */}
         {!sceneRuleCollapsed && (
-          <div style={{ flex: 0.25, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            {/* 业务场景和规则管理 */}
-            <Card 
-              title="业务场景与规则" 
-              bordered={false} 
-              extra={
-                <Button 
-                  type="default" 
-                  icon={<MinusOutlined />} 
-                  onClick={() => setSceneRuleCollapsed(true)}
-                  size="small"
-                  style={{
-                    backgroundColor: '#F3EDF7',
-                    border: '1px solid #79747E',
-                    borderRadius: '8px',
-                    color: '#1C1B1F'
-                  }}
-                >
-                  收起目录
-                </Button>
-              }
-              style={{
-              flex: 1, 
-              overflow: 'hidden', 
-              display: 'flex', 
-              flexDirection: 'column',
-              backgroundColor: '#FFFFFF',
-              borderRadius: '12px',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
-              border: '1px solid #79747E'
-            }}
-            >
+          <>
+            {/* 左侧面板 */}
+            <div ref={leftPanelRef} style={{ width: '25%', display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: '150px', maxWidth: '50%' }}>
+              {/* 业务场景和规则管理 */}
+              <Card 
+                title="业务场景与规则" 
+                variant="outlined" 
+                extra={
+                  <Button 
+                    type="default" 
+                    icon={<MinusOutlined />} 
+                    onClick={() => setSceneRuleCollapsed(true)}
+                    size="small"
+                    style={{
+                      backgroundColor: '#F3EDF7',
+                      border: '1px solid #79747E',
+                      borderRadius: '8px',
+                      color: '#1C1B1F'
+                    }}
+                  >
+                    收起目录
+                  </Button>
+                }
+                style={{
+                flex: 1, 
+                overflow: 'hidden', 
+                display: 'flex', 
+                flexDirection: 'column',
+                backgroundColor: '#FFFFFF',
+                borderRadius: '12px 0 0 12px',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+                border: '1px solid #79747E',
+                borderRight: 'none'
+              }}
+              >
               <div style={{ display: 'flex', gap: '16px', overflow: 'hidden', flex: 1 }}>
               {/* 业务场景 */}
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: '120px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', padding: '0 8px' }}>
                   <h4 style={{ 
                     margin: 0, 
@@ -637,16 +711,14 @@ const FullFlowDebug: React.FC = () => {
                     onClick={() => showSceneModal()} 
                     size="small"
                     style={{
-                      height: '32px', 
-                      fontSize: '13px',
+                      height: '28px', 
+                      fontSize: '12px',
+                      padding: '0 8px',
                       backgroundColor: '#6750A4',
                       border: 'none',
-                      borderRadius: '8px',
+                      borderRadius: '6px',
                       color: '#FFFFFF',
-                      '&:hover': {
-                        backgroundColor: '#5A469A',
-                        boxShadow: '0 4px 12px rgba(103, 80, 164, 0.3)'
-                      }
+                      minWidth: 'auto' // 移除最小宽度限制
                     }}
                   >
                     新建
@@ -668,17 +740,13 @@ const FullFlowDebug: React.FC = () => {
                       display: 'flex',
                       justifyContent: 'space-between',
                       alignItems: 'center',
-                      transition: 'all 0.2s ease',
-                      '&:hover': {
-                        backgroundColor: '#E8DEF8',
-                        borderColor: '#6750A4'
-                      }
+                      transition: 'all 0.2s ease'
                     }}
                     >
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 500, fontSize: '14px', color: '#1C1B1F' }}>{scene.name}</div>
+                      <div style={{ flex: '1 0 auto', marginRight: '8px', minWidth: 0 }}>
+                        <div style={{ fontWeight: 500, fontSize: '14px', color: '#1C1B1F', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{scene.name}</div>
                       </div>
-                      <div style={{ display: 'flex', gap: '4px' }}>
+                      <div style={{ display: 'flex', gap: '2px' }}>
                         <Button 
                           type="text" 
                           icon={<EditOutlined />} 
@@ -688,17 +756,13 @@ const FullFlowDebug: React.FC = () => {
                           }} 
                           size="small"
                           style={{ 
-                            padding: '0 6px', 
-                            fontSize: '12px', 
-                            minWidth: '28px', 
-                            height: '28px', 
-                            lineHeight: '28px',
-                            color: '#6750A4',
-                            '&:hover': {
-                              color: '#5A469A',
-                              backgroundColor: 'rgba(103, 80, 164, 0.1)'
-                            }
-                          }}
+                              padding: '0 6px', 
+                              fontSize: '12px', 
+                              minWidth: '28px', 
+                              height: '28px', 
+                              lineHeight: '28px',
+                              color: '#6750A4'
+                            }}
                         />
                         <Button 
                           type="text" 
@@ -710,17 +774,13 @@ const FullFlowDebug: React.FC = () => {
                           }} 
                           size="small"
                           style={{ 
-                            padding: '0 6px', 
-                            fontSize: '12px', 
-                            minWidth: '28px', 
-                            height: '28px', 
-                            lineHeight: '28px',
-                            color: '#7D5260',
-                            '&:hover': {
-                              color: '#6B46C1',
-                              backgroundColor: 'rgba(125, 82, 96, 0.1)'
-                            }
-                          }}
+                              padding: '0 6px', 
+                              fontSize: '12px', 
+                              minWidth: '28px', 
+                              height: '28px', 
+                              lineHeight: '28px',
+                              color: '#7D5260'
+                            }}
                         />
                       </div>
                     </div>
@@ -728,10 +788,8 @@ const FullFlowDebug: React.FC = () => {
                 </div>
               </div>
               
-              
-              
               {/* 规则 */}
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: '120px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', padding: '0 8px' }}>
                   <h4 style={{ 
                     margin: 0, 
@@ -739,26 +797,6 @@ const FullFlowDebug: React.FC = () => {
                     fontWeight: 600, 
                     color: '#1C1B1F'
                   }}>规则</h4>
-                  <Button 
-                    type="primary" 
-                    icon={<PlusOutlined />} 
-                    onClick={() => showRuleModal()} 
-                    size="small"
-                    style={{
-                      height: '32px', 
-                      fontSize: '13px',
-                      backgroundColor: '#6750A4',
-                      border: 'none',
-                      borderRadius: '8px',
-                      color: '#FFFFFF',
-                      '&:hover': {
-                        backgroundColor: '#5A469A',
-                        boxShadow: '0 4px 12px rgba(103, 80, 164, 0.3)'
-                      }
-                    }}
-                  >
-                    新建
-                  </Button>
                 </div>
                 
                 <div style={{ flex: 1, overflowY: 'auto', padding: '0 8px' }}>
@@ -767,97 +805,45 @@ const FullFlowDebug: React.FC = () => {
                       {/* 直接添加规则输入框 */}
                       <div style={{ marginBottom: '12px' }}>
                         {showNewRuleInput ? (
-                          <div style={{ 
-                            padding: '12px', 
-                            borderRadius: '8px', 
-                            backgroundColor: '#E7E0EC',
-                            border: '1px solid #79747E',
-                            display: 'flex',
-                            gap: '10px',
-                            alignItems: 'center'
-                          }}>
-                            <Input
-                              placeholder="请输入规则名称"
-                              value={newRuleName}
-                              onChange={(e) => setNewRuleName(e.target.value)}
-                              onPressEnter={handleAddRuleDirectly}
-                              style={{ 
-                                flex: 1, 
-                                height: '36px', 
-                                fontSize: '14px',
+                          <Input
+                            placeholder="请输入规则名称，失去焦点或按回车键保存"
+                            value={newRuleName}
+                            onChange={(e) => setNewRuleName(e.target.value)}
+                            onPressEnter={handleAddRuleDirectly}
+                            onBlur={handleAddRuleDirectly}
+                            autoFocus
+                            style={{ 
+                                width: 'calc(100% - 16px)', // 减去父容器的padding
+                                height: '48px', 
+                                fontSize: '16px',
                                 backgroundColor: '#FFFFFF',
                                 border: '1px solid #79747E',
-                                borderRadius: '6px',
-                                '&:focus': {
-                                  borderColor: '#6750A4',
-                                  boxShadow: '0 0 0 2px rgba(103, 80, 164, 0.2)'
-                                }
-                              }}
-                            />
-                            <Button 
-                              type="primary" 
-                              size="small"
-                              onClick={handleAddRuleDirectly}
-                              style={{ 
-                                height: '36px', 
-                                fontSize: '13px',
-                                backgroundColor: '#6750A4',
-                                border: 'none',
                                 borderRadius: '8px',
-                                color: '#FFFFFF',
-                                '&:hover': {
-                                  backgroundColor: '#5A469A',
-                                  boxShadow: '0 4px 12px rgba(103, 80, 164, 0.3)'
-                                }
+                                margin: '0 8px' // 与父容器padding匹配
                               }}
-                            >
-                              保存
-                            </Button>
-                            <Button 
-                              type="default" 
-                              size="small"
-                              onClick={() => {
-                                setShowNewRuleInput(false);
-                                setNewRuleName('');
-                              }}
-                              style={{ 
-                                height: '36px', 
-                                fontSize: '13px',
-                                backgroundColor: '#F3EDF7',
-                                border: '1px solid #79747E',
-                                borderRadius: '8px',
-                                color: '#1C1B1F',
-                                '&:hover': {
-                                  backgroundColor: '#E8DEF8',
-                                  borderColor: '#6750A4'
-                                }
-                              }}
-                            >
-                              取消
-                            </Button>
-                          </div>
+                          />
                         ) : (
                           <Button 
                             type="dashed" 
-                            icon={<PlusOutlined />} 
                             onClick={() => setShowNewRuleInput(true)}
-                            size="small"
+                            size="middle"
                             style={{ 
-                              width: '100%', 
-                              height: '36px', 
-                              fontSize: '13px', 
-                              justifyContent: 'center',
-                              backgroundColor: '#F3EDF7',
-                              border: '1px dashed #6750A4',
-                              borderRadius: '8px',
-                              color: '#6750A4',
-                              '&:hover': {
-                                backgroundColor: '#E8DEF8',
-                                borderColor: '#6750A4'
-                              }
-                            }}
+                                width: 'calc(100% - 16px)', // 减去父容器的padding
+                                height: '48px', 
+                                fontSize: '15px', 
+                                justifyContent: 'center',
+                                backgroundColor: '#F3EDF7',
+                                border: '1px dashed #6750A4',
+                                borderRadius: '8px',
+                                color: '#6750A4',
+                                margin: '0 8px', // 与父容器padding匹配
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px'
+                              }}
                           >
-                            点击添加新规则
+                            <PlusOutlined />
+                            <span>点击添加新规则</span>
                           </Button>
                         )}
                       </div>
@@ -868,25 +854,21 @@ const FullFlowDebug: React.FC = () => {
                           <div 
                             onClick={() => setSelectedRule(rule._id)}
                           style={{
-                            padding: '10px 12px',
-                            borderRadius: '8px',
-                            cursor: 'pointer',
-                            backgroundColor: selectedRule === rule._id ? '#F3EDF7' : 'transparent',
-                            border: `1px solid ${selectedRule === rule._id ? '#6750A4' : 'transparent'}`,
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            transition: 'all 0.2s ease',
-                            '&:hover': {
-                              backgroundColor: '#E8DEF8',
-                              borderColor: '#6750A4'
-                            }
-                          }}
+                              padding: '10px 12px',
+                              borderRadius: '8px',
+                              cursor: 'pointer',
+                              backgroundColor: selectedRule === rule._id ? '#F3EDF7' : 'transparent',
+                              border: `1px solid ${selectedRule === rule._id ? '#6750A4' : 'transparent'}`,
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              transition: 'all 0.2s ease'
+                            }}
                           >
-                            <div style={{ flex: 1 }}>
-                              <div style={{ fontWeight: 500, fontSize: '14px', color: '#1C1B1F' }}>{rule.name}</div>
+                            <div style={{ flex: '1 0 auto', marginRight: '8px', minWidth: 0 }}>
+                              <div style={{ fontWeight: 500, fontSize: '14px', color: '#1C1B1F', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{rule.name}</div>
                             </div>
-                            <div style={{ display: 'flex', gap: '4px' }}>
+                            <div style={{ display: 'flex', gap: '2px' }}>
                               <Button 
                                 type="text" 
                                 icon={<EditOutlined />} 
@@ -896,17 +878,13 @@ const FullFlowDebug: React.FC = () => {
                                 }} 
                                 size="small"
                                 style={{ 
-                                  padding: '0 6px', 
-                                  fontSize: '12px', 
-                                  minWidth: '28px', 
-                                  height: '28px', 
-                                  lineHeight: '28px',
-                                  color: '#6750A4',
-                                  '&:hover': {
-                                    color: '#5A469A',
-                                    backgroundColor: 'rgba(103, 80, 164, 0.1)'
-                                  }
-                                }}
+                                    padding: '0 6px', 
+                                    fontSize: '12px', 
+                                    minWidth: '28px', 
+                                    height: '28px', 
+                                    lineHeight: '28px',
+                                    color: '#6750A4'
+                                  }}
                               />
                               <Button 
                                 type="text" 
@@ -918,17 +896,13 @@ const FullFlowDebug: React.FC = () => {
                                 }} 
                                 size="small"
                                 style={{ 
-                                  padding: '0 6px', 
-                                  fontSize: '12px', 
-                                  minWidth: '28px', 
-                                  height: '28px', 
-                                  lineHeight: '28px',
-                                  color: '#7D5260',
-                                  '&:hover': {
-                                    color: '#6B46C1',
-                                    backgroundColor: 'rgba(125, 82, 96, 0.1)'
-                                  }
-                                }}
+                                    padding: '0 6px', 
+                                    fontSize: '12px', 
+                                    minWidth: '28px', 
+                                    height: '28px', 
+                                    lineHeight: '28px',
+                                    color: '#7D5260'
+                                  }}
                               />
                             </div>
                           </div>
@@ -952,11 +926,18 @@ const FullFlowDebug: React.FC = () => {
               </div>
             </div>
           </Card>
-        </div>
+            </div>
+          </>
         )}
         
         {/* 中间：规则校验 */}
-        <div style={{ flex: sceneRuleCollapsed ? (showValidationResults ? 0.6 : 1) : (showValidationResults ? 0.4 : 0.75), display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ 
+          flex: 1, // 始终占满剩余空间
+          display: 'flex', 
+          flexDirection: 'column', 
+          overflow: 'hidden',
+          borderLeft: !sceneRuleCollapsed ? '1px solid #79747E' : 'none'
+        }}>
           <Card 
             title={
               sceneRuleCollapsed ? (
@@ -970,11 +951,7 @@ const FullFlowDebug: React.FC = () => {
                       backgroundColor: '#F3EDF7',
                       border: '1px solid #79747E',
                       borderRadius: '8px',
-                      color: '#1C1B1F',
-                      '&:hover': {
-                        backgroundColor: '#E8DEF8',
-                        borderColor: '#6750A4'
-                      }
+                      color: '#1C1B1F'
                     }}
                   >
                     展开目录
@@ -983,7 +960,7 @@ const FullFlowDebug: React.FC = () => {
                 </div>
               ) : '规则设置'
             } 
-            bordered={false} 
+            variant="outlined"
             extra={
               <div style={{ display: 'flex', gap: '8px' }}>
                 <Button 
@@ -991,15 +968,11 @@ const FullFlowDebug: React.FC = () => {
                   size="small"
                   onClick={cancelEdit}
                   style={{
-                    backgroundColor: '#F3EDF7',
-                    border: '1px solid #79747E',
-                    borderRadius: '8px',
-                    color: '#1C1B1F',
-                    '&:hover': {
-                      backgroundColor: '#E8DEF8',
-                      borderColor: '#6750A4'
-                    }
-                  }}
+                              backgroundColor: '#F3EDF7',
+                              border: '1px solid #79747E',
+                              borderRadius: '8px',
+                              color: '#1C1B1F'
+                            }}
                 >
                   取消
                 </Button>
@@ -1008,16 +981,15 @@ const FullFlowDebug: React.FC = () => {
                   size="small"
                   onClick={saveExecutionLogic}
                   loading={saving}
+                  disabled={!selectedScene || !selectedRule || !debugRuleDescription.trim()}
                   style={{
-                    backgroundColor: '#6750A4',
-                    border: 'none',
-                    borderRadius: '8px',
-                    color: '#FFFFFF',
-                    '&:hover': {
-                      backgroundColor: '#5A469A',
-                      boxShadow: '0 4px 12px rgba(103, 80, 164, 0.3)'
-                    }
-                  }}
+                      backgroundColor: '#6750A4',
+                      border: 'none',
+                      borderRadius: '8px',
+                      color: '#FFFFFF',
+                      opacity: (!selectedScene || !selectedRule || !debugRuleDescription.trim()) ? 0.5 : 1,
+                      cursor: (!selectedScene || !selectedRule || !debugRuleDescription.trim()) ? 'not-allowed' : 'pointer'
+                    }}
                 >
                   保存
                 </Button>
@@ -1029,9 +1001,10 @@ const FullFlowDebug: React.FC = () => {
               display: 'flex', 
               flexDirection: 'column',
               backgroundColor: '#FFFFFF',
-              borderRadius: '12px',
+              borderRadius: sceneRuleCollapsed ? '12px' : '0 12px 12px 0',
               boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
-              border: '1px solid #79747E'
+              border: sceneRuleCollapsed ? '1px solid #79747E' : '1px solid #79747E',
+              borderLeft: sceneRuleCollapsed ? '1px solid #79747E' : 'none'
             }}
           >
             <Form style={{ flex: 1, overflow: 'auto', paddingRight: '8px' }}>
@@ -1051,16 +1024,12 @@ const FullFlowDebug: React.FC = () => {
                     value={debugRuleDescription}
                     onChange={(e) => setDebugRuleDescription(e.target.value)}
                     style={{ 
-                      marginBottom: '8px',
-                      backgroundColor: '#E7E0EC',
-                      border: '1px solid #79747E',
-                      borderRadius: '8px',
-                      color: '#1C1B1F',
-                      '&:focus': {
-                        borderColor: '#6750A4',
-                        boxShadow: '0 0 0 2px rgba(103, 80, 164, 0.2)'
-                      }
-                    }}
+                    marginBottom: '8px',
+                    backgroundColor: '#E7E0EC',
+                    border: '1px solid #79747E',
+                    borderRadius: '8px',
+                    color: '#1C1B1F'
+                  }}
                     maxLength={500}
                     showCount
                   />
@@ -1084,11 +1053,7 @@ const FullFlowDebug: React.FC = () => {
                       backgroundColor: '#E7E0EC',
                       border: '1px solid #79747E',
                       borderRadius: '8px',
-                      color: '#1C1B1F',
-                      '&:focus': {
-                        borderColor: '#6750A4',
-                        boxShadow: '0 0 0 2px rgba(103, 80, 164, 0.2)'
-                      }
+                      color: '#1C1B1F'
                     }}
                   />
                   {optimizedPrompt && (
@@ -1101,14 +1066,10 @@ const FullFlowDebug: React.FC = () => {
                           message.success('复制成功');
                         }}
                         style={{
-                          backgroundColor: '#F3EDF7',
-                          border: '1px solid #79747E',
-                          color: '#1C1B1F',
-                          '&:hover': {
-                            backgroundColor: '#E8DEF8',
-                            borderColor: '#6750A4'
-                          }
-                        }}
+                            backgroundColor: '#F3EDF7',
+                            border: '1px solid #79747E',
+                            color: '#1C1B1F'
+                          }}
                       >
                         复制结果
                       </Button>
@@ -1117,14 +1078,10 @@ const FullFlowDebug: React.FC = () => {
                         size="small"
                         onClick={() => setOptimizedPrompt('')}
                         style={{
-                          backgroundColor: '#F3EDF7',
-                          border: '1px solid #79747E',
-                          color: '#1C1B1F',
-                          '&:hover': {
-                            backgroundColor: '#E8DEF8',
-                            borderColor: '#6750A4'
-                          }
-                        }}
+                        backgroundColor: '#F3EDF7',
+                        border: '1px solid #79747E',
+                        color: '#1C1B1F'
+                      }}
                       >
                         清空
                       </Button>
@@ -1133,14 +1090,10 @@ const FullFlowDebug: React.FC = () => {
                         size="small"
                         onClick={() => setDebugRuleDescription(optimizedPrompt)}
                         style={{
-                          backgroundColor: '#6750A4',
-                          border: 'none',
-                          color: '#FFFFFF',
-                          '&:hover': {
-                            backgroundColor: '#5A469A',
-                            boxShadow: '0 4px 12px rgba(103, 80, 164, 0.3)'
-                          }
-                        }}
+                            backgroundColor: '#6750A4',
+                            border: 'none',
+                            color: '#FFFFFF'
+                          }}
                       >
                         应用优化结果
                       </Button>
@@ -1165,16 +1118,7 @@ const FullFlowDebug: React.FC = () => {
                     border: 'none',
                     borderRadius: '8px',
                     color: '#FFFFFF',
-                    fontSize: '15px',
-                    '&:hover': {
-                      backgroundColor: '#5A469A',
-                      boxShadow: '0 4px 12px rgba(103, 80, 164, 0.3)'
-                    },
-                    '&:disabled': {
-                      backgroundColor: '#E8DEF8',
-                      color: '#79747E',
-                      boxShadow: 'none'
-                    }
+                    fontSize: '15px'
                   }}
                 >
                   {optimizing ? '优化中...' : 'AI优化'}
@@ -1194,7 +1138,25 @@ const FullFlowDebug: React.FC = () => {
                 backgroundColor: '#E7E0EC',
                 transition: 'all 0.3s ease'
               }}>
-                  {uploadedFiles.length > 0 ? (
+                  {/* 自动识别的待审核文档下拉框 */}
+                  <div style={{ marginBottom: '16px' }}>
+                    <div style={{ marginBottom: '8px', color: '#1C1B1F', fontWeight: '500' }}>自动识别的待审核文档：</div>
+                    <Select
+                      placeholder="请选择要上传的待审核文档"
+                      style={{ width: '100%', marginBottom: '12px' }}
+                      size="large"
+                    >
+                      {classifiedDocuments.auditDocuments.map((doc, index) => (
+                        <Select.Option key={index} value={doc}>{doc}</Select.Option>
+                      ))}
+                      {classifiedDocuments.auditDocuments.length === 0 && (
+                        <Select.Option value="" disabled>未识别到待审核文档</Select.Option>
+                      )}
+                    </Select>
+                  </div>
+                  
+                  {/* 已上传文件列表 */}
+                  {uploadedFiles.length > 0 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
                       {uploadedFiles.map((file) => (
                         <div key={file.uid} style={{ 
@@ -1235,17 +1197,9 @@ const FullFlowDebug: React.FC = () => {
                         </div>
                       ))}
                     </div>
-                  ) : (
-                    <div style={{ 
-                      textAlign: 'center', 
-                      color: '#49454F', 
-                      padding: '16px 0', 
-                      fontSize: '15px', 
-                      marginBottom: '16px'
-                    }}>
-                      点击上传待审核文件
-                    </div>
                   )}
+                  
+                  {/* 上传按钮 */}
                   <Button 
                     type="primary" 
                     icon={<UploadOutlined />} 
@@ -1267,15 +1221,11 @@ const FullFlowDebug: React.FC = () => {
                     }}
                     size="middle"
                     style={{
-                      backgroundColor: '#6750A4',
-                      border: 'none',
-                      color: '#FFFFFF',
-                      borderRadius: '8px',
-                      '&:hover': {
-                        backgroundColor: '#5A469A',
-                        boxShadow: '0 4px 12px rgba(103, 80, 164, 0.3)'
-                      }
-                    }}
+                    backgroundColor: '#6750A4',
+                    border: 'none',
+                    color: '#FFFFFF',
+                    borderRadius: '8px'
+                  }}
                   >
                     上传文件
                   </Button>
@@ -1295,7 +1245,25 @@ const FullFlowDebug: React.FC = () => {
                 backgroundColor: '#E7E0EC',
                 transition: 'all 0.3s ease'
               }}>
-                  {referenceFiles.length > 0 ? (
+                  {/* 自动识别的参考文档下拉框 */}
+                  <div style={{ marginBottom: '16px' }}>
+                    <div style={{ marginBottom: '8px', color: '#1C1B1F', fontWeight: '500' }}>自动识别的参考文档：</div>
+                    <Select
+                      placeholder="请选择要上传的参考文档"
+                      style={{ width: '100%', marginBottom: '12px' }}
+                      size="large"
+                    >
+                      {classifiedDocuments.referenceDocuments.map((doc, index) => (
+                        <Select.Option key={index} value={doc}>{doc}</Select.Option>
+                      ))}
+                      {classifiedDocuments.referenceDocuments.length === 0 && (
+                        <Select.Option value="" disabled>未识别到参考文档</Select.Option>
+                      )}
+                    </Select>
+                  </div>
+                  
+                  {/* 已上传文件列表 */}
+                  {referenceFiles.length > 0 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
                       {referenceFiles.map((file: UploadFile) => (
                         <div key={file.uid} style={{ 
@@ -1336,19 +1304,11 @@ const FullFlowDebug: React.FC = () => {
                         </div>
                       ))}
                     </div>
-                  ) : (
-                    <div style={{ 
-                      textAlign: 'center', 
-                      color: '#49454F', 
-                      padding: '16px 0', 
-                      fontSize: '15px', 
-                      marginBottom: '16px'
-                    }}>
-                      点击上传参考材料（可选）
-                    </div>
                   )}
+                  
+                  {/* 上传按钮 */}
                   <Button 
-                    type="default"
+                    type="primary"
                     icon={<UploadOutlined />} 
                     onClick={() => {
                       // 触发文件选择
@@ -1368,15 +1328,11 @@ const FullFlowDebug: React.FC = () => {
                     }}
                     size="middle"
                     style={{
-                      backgroundColor: '#F3EDF7',
-                      border: '1px solid #79747E',
-                      color: '#1C1B1F',
-                      borderRadius: '8px',
-                      '&:hover': {
-                        backgroundColor: '#E8DEF8',
-                        borderColor: '#6750A4'
-                      }
-                    }}
+                    backgroundColor: '#6750A4',
+                    border: 'none',
+                    color: '#FFFFFF',
+                    borderRadius: '8px'
+                  }}
                   >
                     上传参考材料
                   </Button>
@@ -1398,16 +1354,7 @@ const FullFlowDebug: React.FC = () => {
                     backgroundColor: '#6750A4',
                     border: 'none',
                     borderRadius: '8px',
-                    color: '#FFFFFF',
-                    '&:hover': {
-                      backgroundColor: '#5A469A',
-                      boxShadow: '0 4px 12px rgba(103, 80, 164, 0.3)'
-                    },
-                    '&:disabled': {
-                      backgroundColor: '#E8DEF8',
-                      color: '#79747E',
-                      boxShadow: 'none'
-                    }
+                    color: '#FFFFFF'
                   }}
                 >
                   开始校验
@@ -1419,7 +1366,7 @@ const FullFlowDebug: React.FC = () => {
         
         {/* 右侧：校验结果 */}
         {showValidationResults && (
-          <div style={{ flex: sceneRuleCollapsed ? 0.4 : 0.35, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ flex: sceneRuleCollapsed ? 0.3 : 0.25, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             {/* 校验结果 */}
             <Card title="校验结果" bordered={false} style={{ 
               flex: 1, 
@@ -1562,7 +1509,7 @@ const FullFlowDebug: React.FC = () => {
         onCancel={handleSceneCancel}
         width={500}
         maskClosable={false}
-        destroyOnClose
+        destroyOnHidden
         style={{ top: 100 }}
         styles={{ body: { maxHeight: '70vh', overflowY: 'auto' } }}
         footer={[
@@ -1656,82 +1603,8 @@ const FullFlowDebug: React.FC = () => {
         </div>
       </Modal>
       
-      {/* 审核项模态框 */}
-      <Modal
-        title={editingItem ? '编辑审核项' : '新建审核项'}
-        open={itemModalVisible}
-        onCancel={handleItemCancel}
-        footer={[
-          <Button key="cancel" onClick={handleItemCancel}>
-            取消
-          </Button>,
-          <Button key="submit" type="primary" onClick={() => {
-            if (!itemName.trim()) {
-              message.error('请输入审核项名称');
-              return;
-            }
-            if (!itemRuleId.trim()) {
-              message.error('请选择所属规则');
-              return;
-            }
-            handleItemSubmit({
-              name: itemName.trim(),
-              rule_id: itemRuleId.trim(),
-              type: itemType,
-              criteria: itemCriteria.trim()
-            });
-          }}>
-            确定
-          </Button>
-        ]}
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div>
-            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>审核项名称</label>
-            <Input 
-              placeholder="请输入审核项名称" 
-              value={itemName} 
-              onChange={(e) => setItemName(e.target.value)} 
-            />
-          </div>
-          <div>
-            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>所属规则</label>
-            <Select 
-              placeholder="请选择所属规则" 
-              value={itemRuleId} 
-              onChange={(value) => setItemRuleId(value)} 
-              style={{ width: '100%' }}
-            >
-              {rules.filter(rule => rule.scene_id === selectedScene).map(rule => (
-                <Select.Option key={rule._id} value={rule._id}>{rule.name}</Select.Option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>审核项类型</label>
-            <Select 
-              placeholder="请选择审核项类型" 
-              value={itemType} 
-              onChange={(value) => setItemType(value)} 
-              style={{ width: '100%' }}
-            >
-              <Select.Option value="text">文本</Select.Option>
-              <Select.Option value="number">数字</Select.Option>
-              <Select.Option value="date">日期</Select.Option>
-              <Select.Option value="boolean">布尔值</Select.Option>
-            </Select>
-          </div>
-          <div>
-            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>审核标准</label>
-            <Input.TextArea 
-              placeholder="请输入审核标准" 
-              rows={4} 
-              value={itemCriteria} 
-              onChange={(e) => setItemCriteria(e.target.value)} 
-            />
-          </div>
-        </div>
-      </Modal>
+      {/* 审核项模态框已移除，因为未使用 */}
+      {/* 如需恢复，可参考之前的代码版本 */}
     </div>
   );
 };

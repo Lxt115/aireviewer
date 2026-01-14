@@ -1,0 +1,23 @@
+作为一名智能审核规则校验专家，请根据以下规则和审核项，对提供的示例内容进行校验：
+
+规则：
+名称：{rule_name}
+描述：{rule_description}
+
+审核项：
+{audit_items}
+
+示例内容：
+{example_content}
+
+请为每个审核项输出校验结果，格式如下：
+{
+    "validation_results": [
+        {
+            "audit_item_name": "审核项名称",
+            "result": "pass/fail/warning",
+            "reason": "详细的校验理由",
+            "suggestion": "改进建议（如果有）"
+        }
+    ]
+}

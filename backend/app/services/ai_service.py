@@ -2,51 +2,11 @@ from typing import Optional
 import os
 import json
 import re
+import logging
 from app.core.config import settings
+from app.core.logging import sanitize_log_message
 
-def mask_sensitive_data(text: str, sensitive_keys: list = None) -> str:
-    if not isinstance(text, str):
-        return text
-    
-    if sensitive_keys is None:
-        sensitive_keys = ['api_key', 'apikey', 'api-key', 'password', 'secret', 'token']
-    
-    masked_text = text
-    for key in sensitive_keys:
-        # 使用普通字符串格式而不是rf''来避免语法错误
-        key_pattern = r'("?{key}"?\s*[:=]\s*["\']?)([^"\'\s\}]+)(["\']?)'.format(key=key)
-        masked_text = re.sub(
-            key_pattern,
-            lambda m: m.group(1) + '*' * min(len(m.group(2)), 8) + m.group(3),
-            masked_text,
-            flags=re.IGNORECASE
-        )
-    
-    api_key_patterns = [
-        r'sk-[a-zA-Z0-9]{20,}',
-        r'sk-proj-[a-zA-Z0-9]{20,}',
-        r'[a-zA-Z0-9]{20,}',
-    ]
-    for pattern in api_key_patterns:
-        masked_text = re.sub(pattern, lambda m: '*' * len(m.group(0)), masked_text)
-    
-    return masked_text
-
-def safe_log(level: str, message: str, *args, **kwargs) -> None:
-    import logging
-    logger = logging.getLogger(__name__)
-    
-    safe_message = mask_sensitive_data(message)
-    safe_args = tuple(mask_sensitive_data(str(arg)) for arg in args)
-    
-    safe_kwargs = {}
-    for key, value in kwargs.items():
-        safe_key = mask_sensitive_data(str(key))
-        safe_value = mask_sensitive_data(str(value))
-        safe_kwargs[safe_key] = safe_value
-    
-    log_method = getattr(logger, level.lower(), logger.info)
-    log_method(safe_message, *safe_args, **safe_kwargs)
+logger = logging.getLogger(__name__)
 
 class AIService:
     def __init__(self):
@@ -76,7 +36,7 @@ class AIService:
                 self.base_url = settings.DASHSCOPE_BASE_URL or ""
                 self.model = settings.OPENAI_MODEL or settings.DASHSCOPE_MODEL or ""
         except Exception as e:
-            safe_log("error", f"Error loading AI config: {e}")
+            logger.error(f"Error loading AI config: {sanitize_log_message(str(e))}")
             self.provider = settings.AI_PROVIDER
             self.api_key = settings.OPENAI_API_KEY or settings.DASHSCOPE_API_KEY or ""
             self.base_url = settings.DASHSCOPE_BASE_URL or ""
@@ -187,7 +147,7 @@ class AIService:
             with open(prompt_path, 'r', encoding='utf-8') as f:
                 return f.read().strip()
         except Exception as e:
-            safe_log("error", f"Error loading prompt {prompt_name}: {e}")
+            logger.error(f"Error loading prompt {prompt_name}: {sanitize_log_message(str(e))}")
             # 返回默认提示词
             return "请根据要求优化执行逻辑。"
     

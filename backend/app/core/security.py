@@ -9,14 +9,16 @@ class InputValidator:
     , re.IGNORECASE)
     
     XSS_PATTERN = re.compile(
-        r"<script.*?>|</script>|<iframe.*?>|</iframe>|<object.*?>|</object>|"
-        r"<embed.*?>|on\w+\s*=|javascript:|data:text/html"
-    , re.IGNORECASE | re.DOTALL)
-    
-    PATH_TRAVERSAL_PATTERN = re.compile(r"(\.\./)|(\.\.\\)|(%2e%2e)|(\0)")
+        r"<script.*?>|<\/script>|<iframe.*?>|<\/iframe>|<object.*?>|<\/object>|", re.IGNORECASE | re.DOTALL)
 
     @staticmethod
     def sanitize_string(value: str, max_length: Optional[int] = None) -> str:
+        """
+        清理字符串，防止XSS攻击
+        :param value: 原始字符串
+        :param max_length: 最大长度
+        :return: 清理后的字符串
+        """
         if not isinstance(value, str):
             value = str(value)
         
@@ -31,32 +33,35 @@ class InputValidator:
 
     @staticmethod
     def check_sql_injection(value: str) -> bool:
+        """
+        检查字符串是否包含SQL注入攻击
+        :param value: 原始字符串
+        :return: 是否包含SQL注入攻击
+        """
         if not isinstance(value, str):
             return False
         return bool(InputValidator.SQL_INJECTION_PATTERN.search(value))
 
     @staticmethod
     def check_xss(value: str) -> bool:
+        """
+        检查字符串是否包含XSS攻击
+        :param value: 原始字符串
+        :return: 是否包含XSS攻击
+        """
         if not isinstance(value, str):
             return False
         return bool(InputValidator.XSS_PATTERN.search(value))
 
     @staticmethod
-    def check_path_traversal(value: str) -> bool:
-        if not isinstance(value, str):
-            return False
-        return bool(InputValidator.PATH_TRAVERSAL_PATTERN.search(value))
-
-    @staticmethod
-    def sanitize_id(value: str) -> str:
-        if InputValidator.check_sql_injection(value):
-            raise ValueError("Invalid ID: potential SQL injection detected")
-        if InputValidator.check_path_traversal(value):
-            raise ValueError("Invalid ID: potential path traversal detected")
-        return InputValidator.sanitize_string(value, max_length=64)
-
-    @staticmethod
     def validate_name(value: str, field_name: str = "name", max_length: int = 100) -> str:
+        """
+        验证名称
+        :param value: 原始名称
+        :param field_name: 字段名称
+        :param max_length: 最大长度
+        :return: 验证后的名称
+        """
         if not value or not value.strip():
             raise ValueError(f"{field_name}不能为空")
         
@@ -75,6 +80,12 @@ class InputValidator:
 
     @staticmethod
     def validate_description(value: Optional[str], max_length: int = 1000) -> Optional[str]:
+        """
+        验证描述
+        :param value: 原始描述
+        :param max_length: 最大长度
+        :return: 验证后的描述
+        """
         if value is None:
             return None
         
